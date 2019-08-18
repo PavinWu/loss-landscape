@@ -124,7 +124,7 @@ def project_2D(d, dx, dy, proj_method):
 
 
 def project_trajectory(dir_file, w, s, dataset, model_name, model_files,
-               dir_type='weights', proj_method='cos'):
+               dir_type='weights', proj_method='cos', iteration=0):
     """
         Project the optimization trajectory onto the given two directions.
 
@@ -136,12 +136,13 @@ def project_trajectory(dir_file, w, s, dataset, model_name, model_files,
           model_files: the checkpoint files
           dir_type: the type of the direction, weights or states
           proj_method: cosine projection
+          iteration: index of iteration of current local PCA
 
         Returns:
           proj_file: the projection filename
     """
 
-    proj_file = dir_file + '_proj_' + proj_method + '.h5'
+    proj_file = dir_file + '_iter_' + iteration + '_proj_' + proj_method + '.h5'
     if os.path.exists(proj_file):
         print('The projection file exists! No projection is performed unless %s is deleted' % proj_file)
         return proj_file

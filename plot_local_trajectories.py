@@ -39,6 +39,7 @@ if __name__ == '__main__':
                     'num_local_epoch must be divisible by (max_epoch-min_epoch)/save_epoch'     # NOTE
     num_pca = ((args.max_epoch - args.min_epoch)/args.save_epoch ) / args.num_local_epoch
 
+    model_files=[]
     for i_pca in range(num_pca):
     
         offset_start = i_pca*args.num_local_epoch * args.save_epoch
@@ -55,10 +56,11 @@ if __name__ == '__main__':
         #--------------------------------------------------------------------------
         # collect models to be projected
         #--------------------------------------------------------------------------
-        model_files = []
+        current_model_files = []
         for epoch in range(args.start_epoch+offset_start, args.start_epoch+offset_end, args.save_epoch): # NOTE
             model_file = args.model_folder + '/' + args.prefix + str(epoch) + args.suffix
             assert os.path.exists(model_file), 'model %s does not exist' % model_file
+            current_model_files.append(model_file)
             model_files.append(model_file)
 
         #--------------------------------------------------------------------------
@@ -67,12 +69,14 @@ if __name__ == '__main__':
         if args.dir_file:
             dir_file = args.dir_file
         else:
-            dir_file = setup_PCA_directions(args, model_files, w, s)
+            dir_file = setup_PCA_directions(args, current_model_files, w, s)
 
         #--------------------------------------------------------------------------
         # projection trajectory to given directions
         #--------------------------------------------------------------------------
+        # need to include weights from previous iterations in this iteration, re-project onto new axes
+        # need to save with different names each iteration
         proj_file = project_trajectory(dir_file, w, s, args.dataset, args.model,
-                                    model_files, args.dir_type, 'cos')
-        plot_2D.plot_trajectory(proj_file, dir_file) #TODO
-        ## need to hold the previously projected plot, or create all PCA first, then plot
+                                    model_files, args.dir_type, 'cos', i_pca)  # TODO
+        plot_2D.plot_trajectory(proj_file, dir_file) 
+        

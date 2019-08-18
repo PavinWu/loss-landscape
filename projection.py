@@ -94,7 +94,7 @@ def project_1D(w, d):
         Returns:
             the projection scalar
     """
-    assert len(w) == len(d), 'dimension does not match for w and '
+    assert len(w) == len(d), 'dimension does not match for w and d'
     scale = torch.dot(w, d)/d.norm()
     return scale.item()
 
@@ -162,7 +162,7 @@ def project_trajectory(dir_file, w, s, dataset, model_name, model_files,
             d = net_plotter.get_diff_states(s, s2)
         d = tensorlist_to_tensor(d)
 
-        x, y = project_2D(d, dx, dy, proj_method)
+        x, y = project_2D(d, dx, dy, proj_method)       # dx, dy are 'unit' of the axes. d is the direction to project (weight) (different meaning of d)
         print ("%s  (%.4f, %.4f)" % (model_file, x, y))
 
         xcoord.append(x)
@@ -206,26 +206,41 @@ def setup_PCA_directions(args, model_files, w, s):
         print (model_file)
         net2 = model_loader.load(args.dataset, args.model, model_file)
         if args.dir_type == 'weights':
-            w2 = net_plotter.get_weights(net2)
-            d = net_plotter.get_diff_weights(w, w2)
+            d = net_plotter.get_weights(net2)   # w2
         elif args.dir_type == 'states':
-            s2 = net2.state_dict()
-            d = net_plotter.get_diff_states(s, s2)
+            d = net2.state_dict()      # s2
         if args.ignore == 'biasbn':
         	net_plotter.ignore_biasbn(d)
         d = tensorlist_to_tensor(d)
         matrix.append(d.numpy())
+    if args.dir_type == 'weights':
+        d = w
+    elif args.dir_type == 'states':
+        d = s
+    if args.ignore == 'biasbn':
+        net_plotter.ignore_biasbn(d)
+    d = tensorlist_to_tensor(d)
+    matrix.append(d.numpy())
+    
 
     # Perform PCA on the optimization path matrix
+    matrix = np.array(matrix)
     print ("Perform PCA on the models")
     pca = PCA(n_components=2)
-    pca.fit(np.array(matrix))
+    pca.fit(matrix)
     pc1 = np.array(pca.components_[0])
     pc2 = np.array(pca.components_[1])
     print("angle between pc1 and pc2: %f" % cal_angle(pc1, pc2))
-
     print("pca.explained_variance_ratio_: %s" % str(pca.explained_variance_ratio_))
 
+    # Convert pc1 and pc2 in distorted plane back to the 'normal' plane
+    num_comp = 2
+    pc = np.dot(pca.transform(matrix)[:, :num_comp], pca.components_[:num_comp, :]) + np.mean(matrix, axis=0)
+    pc1 = pc[0, :]
+    pc2 = pc[1, :]
+    print("After convert back - angle between pc1 and pc2: %f" % cal_angle(pc1, pc2))
+    print("After convert back - pca.explained_variance_ratio_: %s" % str(pca.explained_variance_ratio_))    
+    
     # convert vectorized directions to the same shape as models to save in h5 file.
     if args.dir_type == 'weights':
         xdirection = npvec_to_tensorlist(pc1, w)

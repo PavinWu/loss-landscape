@@ -30,13 +30,22 @@ def init_params(net):
             if m.bias is not None:
                 init.constant_(m.bias, 0)
 
+"""
+def NormClipper(module, norm):
+    if hasattr(module, 'weight'):
+        w = module.weight.data
+        w.div_(torch.norm(w, 2, 1).expand_as(w))
+def SRIP(module):
+
+"""
+ 
 # Training
-def train(trainloader, net, criterion, optimizer, use_cuda=True):
+def train(trainloader, net, criterion, optimizer, use_cuda=True, constaint=None):
     net.train()
     train_loss = 0
     correct = 0
     total = 0
-
+    
     if isinstance(criterion, nn.CrossEntropyLoss):
         for batch_idx, (inputs, targets) in enumerate(trainloader):
             batch_size = inputs.size(0)
@@ -46,9 +55,14 @@ def train(trainloader, net, criterion, optimizer, use_cuda=True):
             optimizer.zero_grad()
             inputs, targets = Variable(inputs), Variable(targets)
             outputs = net(inputs)
+            #if constraint == 'SRIP':
+                
             loss = criterion(outputs, targets)
             loss.backward()
             optimizer.step()
+            #if constraint == 'maxnorm':
+                
+                
             train_loss += loss.item()*batch_size
             _, predicted = torch.max(outputs.data, 1)
             correct += predicted.eq(targets.data).cpu().sum().item()
@@ -138,6 +152,8 @@ def name_save_folder(args):
     return save_folder
 
 if __name__ == '__main__':
+    # e.g. parameter to use: --batch_size 64 --save_epoch 3 --model 'resnet56'
+    
     # Training options
     parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
     parser.add_argument('--batch_size', default=128, type=int)
@@ -194,7 +210,7 @@ if __name__ == '__main__':
     if not os.path.exists('trained_nets/' + save_folder):
         os.makedirs('trained_nets/' + save_folder)
 
-    f = open('trained_nets/' + save_folder + '/log.out', 'a', 0)
+    f = open('trained_nets/' + save_folder + '/log.out', 'a')
 
     trainloader, testloader = dataloader.get_data_loaders(args)
 

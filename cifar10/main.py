@@ -60,8 +60,12 @@ def train(trainloader, net, criterion, optimizer, use_cuda=True, constaint=None)
             loss = criterion(outputs, targets)
             loss.backward()
             optimizer.step()
-            #if constraint == 'maxnorm':
-                
+            """
+            if constraint == 'maxnorm':
+                for p in net.parameters():
+                    if p.data.dim() > 1:
+                        # normalize() if norm more than a threshold
+            """            
                 
             train_loss += loss.item()*batch_size
             _, predicted = torch.max(outputs.data, 1)
@@ -152,7 +156,7 @@ def name_save_folder(args):
     return save_folder
 
 if __name__ == '__main__':
-    # e.g. parameter to use: --batch_size 64 --save_epoch 3 --model 'resnet56'
+    # e.g. parameter to use: --batch_size 64 --save_epoch 3 --model 'resnet56' --resume_model 'trained_nets\resnet56_sgd_lr=0.1_bs=8_wd=0.0005_mom=0.9_save_epoch=3\model_18.t7' --resume_opt 'trained_nets\resnet56_sgd_lr=0.1_bs=8_wd=0.0005_mom=0.9_save_epoch=3\opt_state_18.t7'
     
     # Training options
     parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')

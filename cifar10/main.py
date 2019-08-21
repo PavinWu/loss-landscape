@@ -34,7 +34,7 @@ def init_params(net):
 
 
 # Training
-def train(trainloader, net, criterion, optimizer, use_cuda=True, constraint=None, constr_param):
+def train(trainloader, net, criterion, optimizer, use_cuda=True, constraint=None, constr_param=None):
     net.train()
     train_loss = 0
     correct = 0
@@ -86,7 +86,7 @@ def train(trainloader, net, criterion, optimizer, use_cuda=True, constraint=None
     return train_loss/total, 100 - 100.*correct/total
 
 
-def test(testloader, net, criterion, use_cuda=True, constraints, constr_param):
+def test(testloader, net, criterion, use_cuda=True, constraint=None, constr_param=None):
     net.eval()
     test_loss = 0
     correct = 0
@@ -148,6 +148,12 @@ def name_save_folder(args):
         save_folder += '_ngpu=' + str(args.ngpu)
     if args.idx:
         save_folder += '_idx=' + str(args.idx)
+    if args.constraint:
+        save_folder += '_constraint=' + str(args.constraint)
+        if args.constraint == 'max_norm':
+            save_folder += '_max_norm_val=' + str(args.max_norm_val)
+        elif args.constraint == 'SRIP':
+            save_folder += '_reg_rate=' + str(args.reg_rate)
 
     return save_folder
 

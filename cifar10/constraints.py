@@ -4,7 +4,7 @@ import numpy as np
 def max_norm(parameters, max_norm):
     for p in parameters():
         w = p.data
-        if w.norm() > constr_param:
+        if w.norm() > max_norm:
             w.mul_(max_norm/w.norm() + 1e-10) 
 
 def SRIP(parameters, d_rate):

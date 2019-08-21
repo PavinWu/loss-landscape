@@ -23,6 +23,7 @@ import plot_1D
 import model_loader
 import scheduler
 import mpi4pytorch as mpi
+import cifar10.constraints as constraints
 
 def name_surface_file(args, dir_file):
     # skip if surf_file is specified in args
@@ -70,7 +71,7 @@ def setup_surface_file(args, surf_file, dir_file):
     return surf_file
 
 
-def crunch(surf_file, net, w, s, d, dataloader, loss_key, acc_key, comm, rank, args):
+def crunch(surf_file, net, w, s, d, dataloader, loss_key, acc_key, comm, rank, args, constraint):
     """
         Calculate the loss values and accuracies of modified models in parallel
         using MPI reduce.
@@ -112,9 +113,9 @@ def crunch(surf_file, net, w, s, d, dataloader, loss_key, acc_key, comm, rank, a
 
         # Load the weights corresponding to those coordinates into the net
         if args.dir_type == 'weights':
-            net_plotter.set_weights(net.module if args.ngpu > 1 else net, w, d, coord)
+            net_plotter.set_weights(net.module if args.ngpu > 1 else net, w, d, coord, constraint)
         elif args.dir_type == 'states':
-            net_plotter.set_states(net.module if args.ngpu > 1 else net, s, d, coord)
+            net_plotter.set_states(net.module if args.ngpu > 1 else net, s, d, coord, constraint)
 
         # Record the time to compute the loss value
         loss_start = time.time()
@@ -204,6 +205,11 @@ if __name__ == '__main__':
     parser.add_argument('--log', action='store_true', default=False, help='use log scale for loss values')
     parser.add_argument('--plot', action='store_true', default=False, help='plot figures after computation')
 
+    # constraint parameters
+    # constraint parameters
+    parser.add_argument('--constraint', default=None, help='constraint: max_norm')
+    parser.add_argument('--max_norm_val', default=3, help='max of weight norm to be used with max norm constraint')
+
     args = parser.parse_args()
 
     torch.manual_seed(123)
@@ -282,11 +288,11 @@ if __name__ == '__main__':
                                 args.batch_size, args.threads, args.raw_data,
                                 args.data_split, args.split_idx,
                                 args.trainloader, args.testloader)
-
+    
     #--------------------------------------------------------------------------
     # Start the computation
     #--------------------------------------------------------------------------
-    crunch(surf_file, net, w, s, d, trainloader, 'train_loss', 'train_acc', comm, rank, args)
+    crunch(surf_file, net, w, s, d, trainloader, 'train_loss', 'train_acc', comm, rank, args, constraint)
     # crunch(surf_file, net, w, s, d, testloader, 'test_loss', 'test_acc', comm, rank, args)
 
     #--------------------------------------------------------------------------

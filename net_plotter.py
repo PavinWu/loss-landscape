@@ -17,7 +17,7 @@ def get_weights(net):
     return [p.data for p in net.parameters()]
 
 
-def set_weights(net, weights, directions=None, step=None):
+def set_weights(net, weights, directions=None, step=None, constraint=None):
     """
         Overwrite the network's weights with a specified list of tensors
         or change weights along directions with a step size.
@@ -40,7 +40,7 @@ def set_weights(net, weights, directions=None, step=None):
             p.data = w + torch.Tensor(d).type(type(w))
 
 
-def set_states(net, states, directions=None, step=None):
+def set_states(net, states, directions=None, step=None, constraint=None):
     """
         Overwrite the network's state_dict or change it along directions with a step size.
     """

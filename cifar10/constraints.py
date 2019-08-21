@@ -10,6 +10,7 @@ def max_norm(parameters, max_norm):
 def SRIP(parameters, d_rate):
     # Adapted for Python from https://github.com/TAMU-VITA/Orthogonality-in-CNNs/blob/master/ResNet/resnet_cifar_new.py
 
+    reg_loss = 0
     for p in parameters():
         w = p.data
         if w.dim() == 4:
@@ -32,8 +33,7 @@ def SRIP(parameters, d_rate):
             b0 = torch.mm(norm, v)          
             norm_b0 = torch.sum(b0**2)**0.5   
             b1 = torch.div(b0, norm_b0)
-            norm_b2 = d_rate * torch.sum( (torch.mm(norm, b1))**2 )**0.5
+            norm_b2 = torch.sum( (torch.mm(norm, b1))**2 )**0.5
 
-            return Variable(norm_b2)
-        else:
-            return 0
+            reg_loss += norm_b2
+    return d_rate * reg_loss

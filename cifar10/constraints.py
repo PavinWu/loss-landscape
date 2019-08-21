@@ -4,7 +4,7 @@ import numpy as np
 def max_norm(parameters, max_norm):
     for p in parameters():
         w = p.data
-        if w.norm() > constr_param:     # not take batch norm
+        if w.norm() > constr_param:
             w.mul_(max_norm/w.norm() + 1e-10) 
 
 def SRIP(parameters, d_rate):
@@ -37,4 +37,3 @@ def SRIP(parameters, d_rate):
             return Variable(norm_b2)
         else:
             return 0
-            #return d_rate*(K.sum(K.square(v3))**0.5) + w_rate*(K.sum(K.square(w))**0.5)

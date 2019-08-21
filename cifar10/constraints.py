@@ -5,7 +5,7 @@ def max_norm(parameters, max_norm):
     for p in parameters():
         w = p.data
         if w.norm() > max_norm:
-            w.mul_(max_norm/w.norm() + 1e-10) 
+            w = w.mul(max_norm/w.norm() + 1e-10) 
 
 def SRIP(parameters, d_rate):
     # Adapted for Python from https://github.com/TAMU-VITA/Orthogonality-in-CNNs/blob/master/ResNet/resnet_cifar_new.py

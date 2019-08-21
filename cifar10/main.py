@@ -16,6 +16,8 @@ import torch.nn.parallel
 import model_loader
 import dataloader
 
+import constraints
+
 def init_params(net):
     for m in net.modules():
         if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):
@@ -30,17 +32,9 @@ def init_params(net):
             if m.bias is not None:
                 init.constant_(m.bias, 0)
 
-"""
-def NormClipper(module, norm):
-    if hasattr(module, 'weight'):
-        w = module.weight.data
-        w.div_(torch.norm(w, 2, 1).expand_as(w))
-def SRIP(module):
 
-"""
- 
 # Training
-def train(trainloader, net, criterion, optimizer, use_cuda=True, constaint=None):
+def train(trainloader, net, criterion, optimizer, use_cuda=True, constraint=None, constr_param):
     net.train()
     train_loss = 0
     correct = 0
@@ -55,17 +49,16 @@ def train(trainloader, net, criterion, optimizer, use_cuda=True, constaint=None)
             optimizer.zero_grad()
             inputs, targets = Variable(inputs), Variable(targets)
             outputs = net(inputs)
-            #if constraint == 'SRIP':
-                
+            
             loss = criterion(outputs, targets)
+            if constraint == 'SRIP':
+                reg_loss = constraints.SRIP(net.parameters, constr_param)
+                loss += reg_loss
             loss.backward()
             optimizer.step()
-            """
-            if constraint == 'maxnorm':
-                for p in net.parameters():
-                    if p.data.dim() > 1:
-                        # normalize() if norm more than a threshold
-            """            
+            
+            if constraint == 'max_norm':
+                constraints.max_norm(net.parameters, constr_param)
                 
             train_loss += loss.item()*batch_size
             _, predicted = torch.max(outputs.data, 1)
@@ -93,7 +86,7 @@ def train(trainloader, net, criterion, optimizer, use_cuda=True, constaint=None)
     return train_loss/total, 100 - 100.*correct/total
 
 
-def test(testloader, net, criterion, use_cuda=True):
+def test(testloader, net, criterion, use_cuda=True, constraints, constr_param):
     net.eval()
     test_loss = 0
     correct = 0
@@ -109,6 +102,9 @@ def test(testloader, net, criterion, use_cuda=True):
             inputs, targets = Variable(inputs), Variable(targets)
             outputs = net(inputs)
             loss = criterion(outputs, targets)
+            if constraint == 'SRIP':
+                reg_loss = constraints.SRIP(net.parameters, constr_param)
+                loss += reg_loss
             test_loss += loss.item()*batch_size
             _, predicted = torch.max(outputs.data, 1)
             correct += predicted.eq(targets.data).cpu().sum().item()
@@ -157,7 +153,7 @@ def name_save_folder(args):
 
 if __name__ == '__main__':
     # e.g. parameter to use: --batch_size 64 --save_epoch 3 --model 'resnet56' --resume_model 'trained_nets\resnet56_sgd_lr=0.1_bs=8_wd=0.0005_mom=0.9_save_epoch=3\model_18.t7' --resume_opt 'trained_nets\resnet56_sgd_lr=0.1_bs=8_wd=0.0005_mom=0.9_save_epoch=3\opt_state_18.t7'
-    
+
     # Training options
     parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
     parser.add_argument('--batch_size', default=128, type=int)
@@ -185,9 +181,22 @@ if __name__ == '__main__':
     parser.add_argument('--trainloader', default='', help='path to the dataloader with random labels')
     parser.add_argument('--testloader', default='', help='path to the testloader with random labels')
 
+    # constraints
+    parser.add_argument('--constraint', default=None, help='constraint: max_norm | SRIP')
+    parser.add_argument('--max_norm_val', default=3, help='max of weight norm to be used with max norm constraint')
+    parser.add_argument('--reg_rate', default=0.01, help='regularizer constant to be used with SRIP regularizer')
+
     parser.add_argument('--idx', default=0, type=int, help='the index for the repeated experiment')
 
     args = parser.parse_args()
+
+    constraint_param = ""
+    if args.constraint == 'max_norm':
+        print('\nMaximum weight norm: %f' % args.max_norm_val)
+        constraint_param = args.max_norm_val
+    elif args.constraint == 'SRIP':
+        print('\nRegularizer constant: %f' % args.reg_rate)
+        constraint_param = args.reg_rate
 
     print('\nLearning Rate: %f' % args.lr)
     print('\nDecay Rate: %f' % args.lr_decay)
@@ -258,8 +267,8 @@ if __name__ == '__main__':
 
     # record the performance of initial model
     if not args.resume_model:
-        train_loss, train_err = test(trainloader, net, criterion, use_cuda)
-        test_loss, test_err = test(testloader, net, criterion, use_cuda)
+        train_loss, train_err = test(trainloader, net, criterion, use_cuda, args.constraint, constraint_param)
+        test_loss, test_err = test(testloader, net, criterion, use_cuda, args.constraint, constraint_param)
         status = 'e: %d loss: %.5f train_err: %.3f test_top1: %.3f test_loss %.5f \n' % (0, train_loss, train_err, test_err, test_loss)
         print(status)
         f.write(status)
@@ -276,8 +285,8 @@ if __name__ == '__main__':
         torch.save(opt_state, 'trained_nets/' + save_folder + '/opt_state_0.t7')
 
     for epoch in range(start_epoch, args.epochs + 1):
-        loss, train_err = train(trainloader, net, criterion, optimizer, use_cuda)
-        test_loss, test_err = test(testloader, net, criterion, use_cuda)
+        loss, train_err = train(trainloader, net, criterion, optimizer, use_cuda, args.constraint, constraint_param)
+        test_loss, test_err = test(testloader, net, criterion, use_cuda, args.constraint, constraint_param)
 
         status = 'e: %d loss: %.5f train_err: %.3f test_top1: %.3f test_loss %.5f \n' % (epoch, loss, train_err, test_err, test_loss)
         print(status)

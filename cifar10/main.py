@@ -187,12 +187,12 @@ if __name__ == '__main__':
     parser.add_argument('--trainloader', default='', help='path to the dataloader with random labels')
     parser.add_argument('--testloader', default='', help='path to the testloader with random labels')
 
-    # constraints
+    # constraint parameters
     parser.add_argument('--constraint', default=None, help='constraint: max_norm | SRIP')
     parser.add_argument('--max_norm_val', default=3, type=float, help='max of weight norm to be used with max norm constraint')
     parser.add_argument('--reg_rate', default=0.01, type=float, help='regularizer constant to be used with SRIP regularizer')
 
-    parser.add_argument('--idx', default=0, type=int, help='the index for the repeated experiment')
+    parser.add_argument('--idx', default=0, type=int, help='the index for the repeated experiment')     # TODO what for?
 
     args = parser.parse_args()
 

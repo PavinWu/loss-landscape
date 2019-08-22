@@ -35,4 +35,5 @@ def SRIP(model, d_rate):
             norm_b2 = torch.sum( (torch.mm(norm, b1))**2 )**0.5
 
             reg_loss += norm_b2
+            
     return d_rate * reg_loss

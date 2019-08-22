@@ -34,7 +34,7 @@ def init_params(net):
 
 
 # Training
-def train(trainloader, net, criterion, optimizer, use_cuda=True, constraint=None, constr_param):
+def train(trainloader, net, criterion, optimizer, use_cuda=True, constraint=None, constr_param=None):
     net.train()
     train_loss = 0
     correct = 0
@@ -52,13 +52,13 @@ def train(trainloader, net, criterion, optimizer, use_cuda=True, constraint=None
             
             loss = criterion(outputs, targets)
             if constraint == 'SRIP':
-                reg_loss = constraints.SRIP(net.parameters, constr_param)
+                reg_loss = constraints.SRIP(net, constr_param)
                 loss += reg_loss
             loss.backward()
             optimizer.step()
             
             if constraint == 'max_norm':
-                constraints.max_norm(net.parameters, constr_param)
+                constraints.max_norm(net, constr_param)
                 
             train_loss += loss.item()*batch_size
             _, predicted = torch.max(outputs.data, 1)
@@ -86,7 +86,7 @@ def train(trainloader, net, criterion, optimizer, use_cuda=True, constraint=None
     return train_loss/total, 100 - 100.*correct/total
 
 
-def test(testloader, net, criterion, use_cuda=True, constraints, constr_param):
+def test(testloader, net, criterion, use_cuda=True, constraint=None, constr_param=None):
     net.eval()
     test_loss = 0
     correct = 0
@@ -103,7 +103,7 @@ def test(testloader, net, criterion, use_cuda=True, constraints, constr_param):
             outputs = net(inputs)
             loss = criterion(outputs, targets)
             if constraint == 'SRIP':
-                reg_loss = constraints.SRIP(net.parameters, constr_param)
+                reg_loss = constraints.SRIP(net, constr_param)
                 loss += reg_loss
             test_loss += loss.item()*batch_size
             _, predicted = torch.max(outputs.data, 1)
@@ -148,6 +148,12 @@ def name_save_folder(args):
         save_folder += '_ngpu=' + str(args.ngpu)
     if args.idx:
         save_folder += '_idx=' + str(args.idx)
+    if args.constraint:
+        save_folder += '_constraint=' + str(args.constraint)
+        if args.constraint == 'max_norm':
+            save_folder += '_max_norm_val=' + str(args.max_norm_val)
+        elif args.constraint == 'SRIP':
+            save_folder += '_reg_rate=' + str(args.reg_rate)
 
     return save_folder
 
@@ -183,8 +189,8 @@ if __name__ == '__main__':
 
     # constraint parameters
     parser.add_argument('--constraint', default=None, help='constraint: max_norm | SRIP')
-    parser.add_argument('--max_norm_val', default=3, help='max of weight norm to be used with max norm constraint')
-    parser.add_argument('--reg_rate', default=0.01, help='regularizer constant to be used with SRIP regularizer')
+    parser.add_argument('--max_norm_val', default=3, type=float, help='max of weight norm to be used with max norm constraint')
+    parser.add_argument('--reg_rate', default=0.01, type=float, help='regularizer constant to be used with SRIP regularizer')
 
     parser.add_argument('--idx', default=0, type=int, help='the index for the repeated experiment')     # TODO what for?
 

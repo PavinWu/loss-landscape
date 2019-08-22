@@ -1,24 +1,23 @@
 import torch
 import numpy as np
 
-def max_norm(parameters, max_norm):
-    for p in parameters():
-        w = p.data
-        if w.norm() > constr_param:
-            w.mul_(max_norm/w.norm() + 1e-10) 
-
-def SRIP(parameters, d_rate):
+def max_norm(model, max_norm):
+    for name, param in model.named_parameters():
+        if 'bias' not in name:
+            norm = param.norm()
+            if norm > max_norm:
+                param.data.copy_(param * (max_norm / (1e-10 + norm)))   # won't work without copy_???
+            
+def SRIP(model, d_rate):
     # Adapted for Python from https://github.com/TAMU-VITA/Orthogonality-in-CNNs/blob/master/ResNet/resnet_cifar_new.py
-
     reg_loss = 0
-    for p in parameters():
-        w = p.data
-        if w.dim() == 4:
-            filter_size = w.size()
+    for name, param in model.named_parameters():
+        if 'bias' not in name and param.dim() == 4:
+            filter_size = param.size()
             row_dims = filter_size[1]*filter_size[2]*filter_size[3]     #input channel * height * width
             col_dims = filter_size[0]   # output channel
 
-            W = w.view(row_dims, col_dims)
+            W = param.view(row_dims, col_dims)
             Wt = torch.transpose(W, 0, 1)
 
             I = torch.from_numpy(np.eye(col_dims)).float64()

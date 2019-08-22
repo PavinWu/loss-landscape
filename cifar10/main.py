@@ -52,7 +52,7 @@ def train(trainloader, net, criterion, optimizer, use_cuda=True, constraint=None
             
             loss = criterion(outputs, targets)
             if constraint == 'SRIP':
-                reg_loss = constraints.SRIP(net, constr_param)
+                reg_loss = Variable(constraints.SRIP(net, constr_param))
                 loss += reg_loss
             loss.backward()
             optimizer.step()
@@ -103,7 +103,7 @@ def test(testloader, net, criterion, use_cuda=True, constraint=None, constr_para
             outputs = net(inputs)
             loss = criterion(outputs, targets)
             if constraint == 'SRIP':
-                reg_loss = constraints.SRIP(net, constr_param)
+                reg_loss = Variable(constraints.SRIP(net, constr_param))
                 loss += reg_loss
             test_loss += loss.item()*batch_size
             _, predicted = torch.max(outputs.data, 1)

@@ -19,14 +19,14 @@ def SRIP(model, d_rate):
 
             W = param.view(row_dims, col_dims)
             Wt = torch.transpose(W, 0, 1)
-
-            I = torch.from_numpy(np.eye(col_dims)).float64()
+            
+            I = torch.from_numpy(np.eye(col_dims)).float().cuda()   # assume using cuda
             WtW = torch.mm(Wt,W)
             norm = WtW - I          # to be used to power iteration to find spectral norm
 
             # random approx. dominant eigenvector 
             v = np.reshape( np.random.rand(norm.shape[1]), (norm.shape[1], 1) )
-            v = torch.from_numpy(v).float()
+            v = torch.from_numpy(v).float().cuda()
             
             # One step power iteration (https://en.wikipedia.org/wiki/Power_iteration)
             b0 = torch.mm(norm, v)          
@@ -34,6 +34,6 @@ def SRIP(model, d_rate):
             b1 = torch.div(b0, norm_b0)
             norm_b2 = d_rate * torch.sum( (torch.mm(norm, b1))**2 )**0.5
 
-            return Variable(norm_b2)
+            return norm_b2
         else:
             return 0

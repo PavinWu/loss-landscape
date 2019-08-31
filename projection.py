@@ -21,7 +21,7 @@ def tensorlist_to_tensor(weights):
         Returns:
             concatnated 1D tensor
     """
-    return torch.cat([w.view(w.numel()) if w.dim() > 1 else torch.FloatTensor(w) for w in weights])
+    return torch.cat([w.view(w.numel()) if w.dim() > 1 else torch.as_tensor(w) for w in weights])
 
 
 def nplist_to_tensor(nplist):
@@ -191,7 +191,9 @@ def setup_PCA_directions(args, model_files, w, s, iteration=0):
     if args.ignore:
         folder_name += '_ignore=' + args.ignore
     folder_name += '_save_epoch=' + str(args.save_epoch)
-    os.system('mkdir ' + folder_name)
+    #os.system('mkdir ' + folder_name)
+    if not os.path.exists(folder_name):
+        os.mkdir(folder_name)
     dir_name = folder_name + '/directions_iter_' + str(iteration) + '.h5'
 
     # skip if the direction file exists
@@ -219,12 +221,7 @@ def setup_PCA_directions(args, model_files, w, s, iteration=0):
         d = w
     elif args.dir_type == 'states':
         d = s
-    """
-    if args.ignore == 'biasbn':
-        net_plotter.ignore_biasbn(d)
-    d = tensorlist_to_tensor(d)
-    matrix.append(d.numpy())
-    
+    """    
 
     # Perform PCA on the optimization path matrix
     matrix = np.array(matrix)

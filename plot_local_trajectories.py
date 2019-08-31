@@ -13,6 +13,7 @@ import model_loader
 import net_plotter
 from projection import setup_PCA_directions, project_trajectory
 import plot_2D
+import time
 
 
 if __name__ == '__main__':
@@ -41,6 +42,7 @@ if __name__ == '__main__':
 
     model_files=[]
     for i_pca in range(num_pca):
+        start_time = time.time()    
     
         offset_start = i_pca*args.num_local_epoch * args.save_epoch
         offset_end = (i_pca+1)*args.num_local_epoch * args.save_epoch
@@ -79,4 +81,4 @@ if __name__ == '__main__':
         proj_file = project_trajectory(dir_file, w, s, args.dataset, args.model,
                                     model_files, args.dir_type, 'cos', i_pca)  # TODO
         #plot_2D.plot_trajectory(proj_file, dir_file) 
-        
+        print("Finished iteration: " + str(i_pca) + ". Time: " + str(time.time()-start_time) + " s")

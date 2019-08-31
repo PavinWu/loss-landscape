@@ -142,7 +142,7 @@ def project_trajectory(dir_file, w, s, dataset, model_name, model_files,
           proj_file: the projection filename
     """
 
-    proj_file = dir_file + '_iter_' + iteration + '_proj_' + proj_method + '.h5'
+    proj_file = dir_file + '_iter_' + str(iteration) + '_proj_' + proj_method + '.h5'
     if os.path.exists(proj_file):
         print('The projection file exists! No projection is performed unless %s is deleted' % proj_file)
         return proj_file
@@ -192,7 +192,7 @@ def setup_PCA_directions(args, model_files, w, s, iteration=0):
         folder_name += '_ignore=' + args.ignore
     folder_name += '_save_epoch=' + str(args.save_epoch)
     os.system('mkdir ' + folder_name)
-    dir_name = folder_name + '/directions_iter_' + iteration + '.h5'
+    dir_name = folder_name + '/directions_iter_' + str(iteration) + '.h5'
 
     # skip if the direction file exists
     if os.path.exists(dir_name):

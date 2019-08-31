@@ -12,11 +12,13 @@ import argparse
 import model_loader
 import net_plotter
 from projection import setup_PCA_directions, project_trajectory
-import plot_2D
+#import plot_2D
 import time
 
 
 if __name__ == '__main__':
+    # use python plot_local_trajectories.py --model_folder C:/Users/power/Downloads/trained_nets/resnet56_sgd_lr=0.1_bs=128_wd=0.0005_mom=0.9_save_epoch=3 --num_local_epoch 14
+    
     parser = argparse.ArgumentParser(description='Plot optimization trajectory')
     parser.add_argument('--dataset', default='cifar10', help='dataset')
     parser.add_argument('--model', default='resnet56', help='trained models')
@@ -29,16 +31,18 @@ if __name__ == '__main__':
     parser.add_argument('--suffix', default='.t7', help='prefix for the checkpint model')
     parser.add_argument('--start_epoch', default=0, type=int, help='min index of epochs')
     parser.add_argument('--max_epoch', default=300, type=int, help='max number of epochs')
-    parser.add_argument('--save_epoch', default=1, type=int, help='save models every few epochs')
+    parser.add_argument('--save_epoch', default=3, type=int, help='save models every few epochs')
     parser.add_argument('--dir_file', default='', help='load the direction file for projection')
     parser.add_argument('--num_local_epoch', default=5, type=int, 
-        help='number of weight vectors to be used in local PCA direction, must be divisible by (max_epoch-min_epoch)/save_epoch')
+        help='number of weight vectors to be used in local PCA direction, must be divisible by (max_epoch-start_epoch)/save_epoch')
 
     args = parser.parse_args()
 
-    assert ((args.max_epoch - args.min_epoch)/args.save_epoch ) % args.num_local_epoch == 0, 
-                    'num_local_epoch must be divisible by (max_epoch-min_epoch)/save_epoch'     # NOTE
-    num_pca = ((args.max_epoch - args.min_epoch)/args.save_epoch ) / args.num_local_epoch
+    """
+    assert ((args.max_epoch - args.start_epoch)/args.save_epoch ) % args.num_local_epoch == 0, 
+                    'num_local_epoch must be divisible by (max_epoch-start_epoch)/save_epoch'     
+    """ # # don't have to end at last!
+    num_pca = int(((args.max_epoch - args.start_epoch)/args.save_epoch + 1) // args.num_local_epoch)
 
     model_files=[]
     for i_pca in range(num_pca):
@@ -59,7 +63,7 @@ if __name__ == '__main__':
         # collect models to be projected
         #--------------------------------------------------------------------------
         current_model_files = []
-        for epoch in range(args.start_epoch+offset_start, args.start_epoch+offset_end, args.save_epoch): # NOTE
+        for epoch in range(args.start_epoch+offset_start, args.start_epoch+offset_end+1, args.save_epoch): # +1 to get to last one
             model_file = args.model_folder + '/' + args.prefix + str(epoch) + args.suffix
             assert os.path.exists(model_file), 'model %s does not exist' % model_file
             current_model_files.append(model_file)

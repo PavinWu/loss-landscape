@@ -130,7 +130,7 @@ def project_trajectory(dir_file, w, s, dataset, model_name, model_files,
 
         Args:
           dir_file: the h5 file that contains the directions
-          w: weights of the final model
+          w: weights of the final model (left in for compatability)
           s: states of the final model
           model_name: the name of the model
           model_files: the checkpoint files
@@ -156,11 +156,11 @@ def project_trajectory(dir_file, w, s, dataset, model_name, model_files,
     for model_file in model_files:
         net2 = model_loader.load(dataset, model_name, model_file)
         if dir_type == 'weights':
-            w2 = net_plotter.get_weights(net2)
-            d = net_plotter.get_diff_weights(w, w2)
+            d = net_plotter.get_weights(net2)
+            #d = net_plotter.get_diff_weights(w, w2)     
         elif dir_type == 'states':
-            s2 = net2.state_dict()
-            d = net_plotter.get_diff_states(s, s2)
+            d = net2.state_dict()
+            #d = net_plotter.get_diff_states(s, s2)      
         d = tensorlist_to_tensor(d)
 
         x, y = project_2D(d, dx, dy, proj_method)       # dx, dy are 'unit' of the axes. d is the direction to project (weight) (different meaning of d)
@@ -177,7 +177,7 @@ def project_trajectory(dir_file, w, s, dataset, model_name, model_files,
     return proj_file
 
 
-def setup_PCA_directions(args, model_files, w, s):
+def setup_PCA_directions(args, model_files, w, s, iteration=0):
     """
         Find PCA directions for the optimization path from the initial model
         to the final trained model.
@@ -192,7 +192,7 @@ def setup_PCA_directions(args, model_files, w, s):
         folder_name += '_ignore=' + args.ignore
     folder_name += '_save_epoch=' + str(args.save_epoch)
     os.system('mkdir ' + folder_name)
-    dir_name = folder_name + '/directions.h5'
+    dir_name = folder_name + '/directions_iter_' + iteration + '.h5'
 
     # skip if the direction file exists
     if os.path.exists(dir_name):
@@ -214,10 +214,12 @@ def setup_PCA_directions(args, model_files, w, s):
         	net_plotter.ignore_biasbn(d)
         d = tensorlist_to_tensor(d)
         matrix.append(d.numpy())
-    if args.dir_type == 'weights':
+    """
+    if args.dir_type == 'weights':      # not need this if included w in model_files
         d = w
     elif args.dir_type == 'states':
         d = s
+    """
     if args.ignore == 'biasbn':
         net_plotter.ignore_biasbn(d)
     d = tensorlist_to_tensor(d)
@@ -235,12 +237,14 @@ def setup_PCA_directions(args, model_files, w, s):
     print("pca.explained_variance_ratio_: %s" % str(pca.explained_variance_ratio_))
 
     # Convert pc1 and pc2 in distorted plane back to the 'normal' plane
+    """
     num_comp = 2
-    pc = np.dot(pca.transform(matrix)[:, :num_comp], pca.components_[:num_comp, :]) + np.mean(matrix, axis=0)
+    pc = np.dot(pca.transrform(matrix)[:, :num_comp], pca.components_[:num_comp, :]) + np.mean(matrix, axis=0)
     pc1 = pc[0, :]
     pc2 = pc[1, :]
     print("After convert back - angle between pc1 and pc2: %f" % cal_angle(pc1, pc2))
     print("After convert back - pca.explained_variance_ratio_: %s" % str(pca.explained_variance_ratio_))    
+    """
     
     # convert vectorized directions to the same shape as models to save in h5 file.
     if args.dir_type == 'weights':

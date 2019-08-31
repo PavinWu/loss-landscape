@@ -69,7 +69,7 @@ if __name__ == '__main__':
         if args.dir_file:
             dir_file = args.dir_file
         else:
-            dir_file = setup_PCA_directions(args, current_model_files, w, s)
+            dir_file = setup_PCA_directions(args, current_model_files, w, s, i_pca)
 
         #--------------------------------------------------------------------------
         # projection trajectory to given directions
@@ -78,5 +78,5 @@ if __name__ == '__main__':
         # need to save with different names each iteration
         proj_file = project_trajectory(dir_file, w, s, args.dataset, args.model,
                                     model_files, args.dir_type, 'cos', i_pca)  # TODO
-        plot_2D.plot_trajectory(proj_file, dir_file) 
+        #plot_2D.plot_trajectory(proj_file, dir_file) 
         

@@ -32,9 +32,22 @@ def init_params(net):
             if m.bias is not None:
                 init.constant_(m.bias, 0)
 
+def save_net(test_err, epoch, net, args, optimizer, save_folder, prefix_extra=''):
+    acc = 100 - test_err
+    state = {
+        'acc': acc,
+        'epoch': epoch,
+        'state_dict': net.module.state_dict() if args.ngpu > 1 else net.state_dict(),
+    }
+    opt_state = {
+        'optimizer': optimizer.state_dict()
+    }
 
+    torch.save(state, 'trained_nets/' + save_folder + '/model_' + prefix_extra + str(epoch) + '.t7')
+    torch.save(opt_state, 'trained_nets/' + save_folder + '/opt_state_' + prefix_extra + str(epoch) + '.t7')
+    
 # Training
-def train(trainloader, net, criterion, optimizer, use_cuda=True, constraint=None, constr_param=None):
+def train(trainloader, net, criterion, optimizer, use_cuda=True, constraint=None, constr_param=None, temp_net=None, temp_opt=None):
     net.train()
     train_loss = 0
     correct = 0
@@ -58,13 +71,15 @@ def train(trainloader, net, criterion, optimizer, use_cuda=True, constraint=None
             optimizer.step()
             
             if constraint == 'max_norm':
+                temp_net.load_state_dict(net.module.state_dict() if args.ngpu > 1 else net.state_dict())
+                temp_opt.load_state_dict(optimizer.state_dict())
                 constraints.max_norm(net, constr_param)
                 
             train_loss += loss.item()*batch_size
             _, predicted = torch.max(outputs.data, 1)
             correct += predicted.eq(targets.data).cpu().sum().item()
 
-    elif isinstance(criterion, nn.MSELoss):
+    elif isinstance(criterion, nn.MSELoss):     # not used in this experiment
         for batch_idx, (inputs, targets) in enumerate(trainloader):
             batch_size = inputs.size(0)
             total += batch_size
@@ -109,7 +124,7 @@ def test(testloader, net, criterion, use_cuda=True, constraint=None, constr_para
             _, predicted = torch.max(outputs.data, 1)
             correct += predicted.eq(targets.data).cpu().sum().item()
 
-    elif isinstance(criterion, nn.MSELoss):
+    elif isinstance(criterion, nn.MSELoss):     # not used in this experiment
         for batch_idx, (inputs, targets) in enumerate(testloader):
             batch_size = inputs.size(0)
             total += batch_size
@@ -157,6 +172,7 @@ def name_save_folder(args):
 
     return save_folder
 
+    
 if __name__ == '__main__':
     # e.g. parameter to use: --batch_size 64 --save_epoch 3 --model 'resnet56' --resume_model 'trained_nets\resnet56_sgd_lr=0.1_bs=8_wd=0.0005_mom=0.9_save_epoch=3\model_18.t7' --resume_opt 'trained_nets\resnet56_sgd_lr=0.1_bs=8_wd=0.0005_mom=0.9_save_epoch=3\opt_state_18.t7'
 
@@ -264,12 +280,24 @@ if __name__ == '__main__':
     # Optimizer
     if args.optimizer == 'sgd':
         optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay, nesterov=True)
+        if constraint == 'max_norm':
+            temp_opt = optim.SGD(net.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay, nesterov=True)
     else:
         optimizer = optim.Adam(net.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+        if constraint == 'max_norm':
+            temp_opt = optim.Adam(net.parameters(), lr=args.lr, weight_decay=args.weight_decay)
 
     if args.resume_opt:
         checkpoint_opt = torch.load(args.resume_opt)
         optimizer.load_state_dict(checkpoint_opt['optimizer'])
+        
+    # temp model to save intermediate states
+    if constraint == 'max_norm':
+        temp_net = model_loader.load(args.model)
+        init_params(temp_net)
+    else:
+        temp_net = None
+        temp_opt = None
 
     # record the performance of initial model
     if not args.resume_model:
@@ -279,19 +307,12 @@ if __name__ == '__main__':
         print(status)
         f.write(status)
 
-        state = {
-            'acc': 100 - test_err,
-            'epoch': 0,
-            'state_dict': net.module.state_dict() if args.ngpu > 1 else net.state_dict()
-        }
-        opt_state = {
-            'optimizer': optimizer.state_dict()
-        }
-        torch.save(state, 'trained_nets/' + save_folder + '/model_0.t7')
-        torch.save(opt_state, 'trained_nets/' + save_folder + '/opt_state_0.t7')
+        epoch = 0
+        save_net(test_err, epoch, net, args, optimizer, save_folder, 'bc_')     # same network before constraint as after constraint applied
+        save_net(test_err, epoch, net, args, optimizer, save_folder)
 
     for epoch in range(start_epoch, args.epochs + 1):
-        loss, train_err = train(trainloader, net, criterion, optimizer, use_cuda, args.constraint, constraint_param)
+        loss, train_err = train(trainloader, net, criterion, optimizer, use_cuda, args.constraint, constraint_param, temp_net, temp_opt)
         test_loss, test_err = test(testloader, net, criterion, use_cuda, args.constraint, constraint_param)
 
         status = 'e: %d loss: %.5f train_err: %.3f test_top1: %.3f test_loss %.5f \n' % (epoch, loss, train_err, test_err, test_loss)
@@ -299,18 +320,9 @@ if __name__ == '__main__':
         f.write(status)
 
         # Save checkpoint.
-        acc = 100 - test_err
         if epoch == 1 or epoch % args.save_epoch == 0 or epoch == 150:
-            state = {
-                'acc': acc,
-                'epoch': epoch,
-                'state_dict': net.module.state_dict() if args.ngpu > 1 else net.state_dict(),
-            }
-            opt_state = {
-                'optimizer': optimizer.state_dict()
-            }
-            torch.save(state, 'trained_nets/' + save_folder + '/model_' + str(epoch) + '.t7')
-            torch.save(opt_state, 'trained_nets/' + save_folder + '/opt_state_' + str(epoch) + '.t7')
+            save_net(test_err, epoch, temp_net, args, temp_opt, save_folder, 'bc_')
+            save_net(test_err, epoch, net, args, optimizer, save_folder)
 
         if int(epoch) == 150 or int(epoch) == 225 or int(epoch) == 275:
             lr *= args.lr_decay

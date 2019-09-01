@@ -25,7 +25,7 @@ import scheduler
 import mpi4pytorch as mpi
 import cifar10.constraints as constraints
 
-def name_surface_file(args, dir_file):
+def name_surface_file(args, dir_file, index=0):
     # skip if surf_file is specified in args
     if args.surf_file:
         return args.surf_file
@@ -37,6 +37,7 @@ def name_surface_file(args, dir_file):
     surf_file += '_[%s,%s,%d]' % (str(args.xmin), str(args.xmax), int(args.xnum))
     if args.y:
         surf_file += 'x[%s,%s,%d]' % (str(args.ymin), str(args.ymax), int(args.ynum))
+    surf_file += _'Index=' + str(index)
 
     # dataloder parameters
     if args.raw_data: # without data normalization
@@ -71,14 +72,14 @@ def setup_surface_file(args, surf_file, dir_file):
     return surf_file
 
 
-def crunch(surf_file, net, w, s, d, dataloader, loss_key, acc_key, comm, rank, args, constraint):
+def crunch(surf_file, net, w, s, d, dataloader, loss_key, acc_key, comm, rank, args):
     """
         Calculate the loss values and accuracies of modified models in parallel
         using MPI reduce.
     """
 
     f = h5py.File(surf_file, 'r+' if rank == 0 else 'r')
-    losses, accuracies = [], []
+    losses, accuracies, inbound = [], [], []
     xcoordinates = f['xcoordinates'][:]
     ycoordinates = f['ycoordinates'][:] if 'ycoordinates' in f.keys() else None
 
@@ -86,12 +87,15 @@ def crunch(surf_file, net, w, s, d, dataloader, loss_key, acc_key, comm, rank, a
         shape = xcoordinates.shape if ycoordinates is None else (len(xcoordinates),len(ycoordinates))
         losses = -np.ones(shape=shape)
         accuracies = -np.ones(shape=shape)
+        inbound = np.ones(shape=shape)
         if rank == 0:
             f[loss_key] = losses
             f[acc_key] = accuracies
+            f['inbound'] = np.ones(shape=shape)
     else:
         losses = f[loss_key][:]
         accuracies = f[acc_key][:]
+        inbound = f['inbound'][:]
 
     # Generate a list of indices of 'losses' that need to be filled in.
     # The coordinates of each unfilled index (with respect to the direction vectors
@@ -113,13 +117,25 @@ def crunch(surf_file, net, w, s, d, dataloader, loss_key, acc_key, comm, rank, a
 
         # Load the weights corresponding to those coordinates into the net
         if args.dir_type == 'weights':
-            net_plotter.set_weights(net.module if args.ngpu > 1 else net, w, d, coord, constraint)
+            net_plotter.set_weights(net.module if args.ngpu > 1 else net, w, d, coord)  # return whether in constraints if msx norm
         elif args.dir_type == 'states':
-            net_plotter.set_states(net.module if args.ngpu > 1 else net, s, d, coord, constraint)
-
+            net_plotter.set_states(net.module if args.ngpu > 1 else net, s, d, coord)
+        # constrain the weights to constr_param, or mark if out of bound? both!
+        if args.constraint == 'max_norm':
+            if args.modify_plane:
+                constraints.max_norm(net.module if args.ngpu > 1 else net, args.max_norm_val)
+            else:
+                # mark whether point fall within constraints
+                for name, param in model.named_parameters():
+                    if 'bias' not in name:
+                        norm = param.norm()
+                        if norm > args.max_norm_val:
+                            inbound.ravel()[ind] = 0
+                            break            
+                                
         # Record the time to compute the loss value
         loss_start = time.time()
-        loss, acc = evaluation.eval_loss(net, criterion, dataloader, args.cuda)
+        loss, acc = evaluation.eval_loss(net, criterion, dataloader, args.cuda, args.constraint, args.reg_rate)
         loss_compute_time = time.time() - loss_start
 
         # Record the result in the local array
@@ -128,8 +144,9 @@ def crunch(surf_file, net, w, s, d, dataloader, loss_key, acc_key, comm, rank, a
 
         # Send updated plot data to the master node
         syc_start = time.time()
-        losses     = mpi.reduce_max(comm, losses)
+        losses     = mpi.reduce_max(comm, losses)   # reduce between initialised -1, and loss values (get loss values)
         accuracies = mpi.reduce_max(comm, accuracies)
+        inbound = mpi.reduce_min(comm, inbound)     # initialised to 1, only change in 0
         syc_time = time.time() - syc_start
         total_sync += syc_time
 
@@ -137,6 +154,7 @@ def crunch(surf_file, net, w, s, d, dataloader, loss_key, acc_key, comm, rank, a
         if rank == 0:
             f[loss_key][:] = losses
             f[acc_key][:] = accuracies
+            f['inbound'][:] = inbound
             f.flush()
 
         print('Evaluating rank %d  %d/%d  (%.1f%%)  coord=%s \t%s= %.3f \t%s=%.2f \ttime=%.2f \tsync=%.2f' % (
@@ -148,6 +166,7 @@ def crunch(surf_file, net, w, s, d, dataloader, loss_key, acc_key, comm, rank, a
     for i in range(max(inds_nums) - len(inds)):
         losses = mpi.reduce_max(comm, losses)
         accuracies = mpi.reduce_max(comm, accuracies)
+        inbound = mpi.reduce_min(comm, inbound)
 
     total_time = time.time() - start_time
     print('Rank %d done!  Total time: %.2f Sync: %.2f' % (rank, total_time, total_sync))
@@ -157,60 +176,7 @@ def crunch(surf_file, net, w, s, d, dataloader, loss_key, acc_key, comm, rank, a
 ###############################################################
 #                          MAIN
 ###############################################################
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='plotting loss surface')
-    parser.add_argument('--mpi', '-m', action='store_true', help='use mpi')
-    parser.add_argument('--cuda', '-c', action='store_true', help='use cuda')
-    parser.add_argument('--threads', default=2, type=int, help='number of threads')
-    parser.add_argument('--ngpu', type=int, default=1, help='number of GPUs to use for each rank, useful for data parallel evaluation')
-    parser.add_argument('--batch_size', default=128, type=int, help='minibatch size')
-
-    # data parameters
-    parser.add_argument('--dataset', default='cifar10', help='cifar10 | imagenet')
-    parser.add_argument('--datapath', default='cifar10/data', metavar='DIR', help='path to the dataset')
-    parser.add_argument('--raw_data', action='store_true', default=False, help='no data preprocessing')
-    parser.add_argument('--data_split', default=1, type=int, help='the number of splits for the dataloader')
-    parser.add_argument('--split_idx', default=0, type=int, help='the index of data splits for the dataloader')
-    parser.add_argument('--trainloader', default='', help='path to the dataloader with random labels')
-    parser.add_argument('--testloader', default='', help='path to the testloader with random labels')
-
-    # model parameters
-    parser.add_argument('--model', default='resnet56', help='model name')
-    parser.add_argument('--model_folder', default='', help='the common folder that contains model_file and model_file2')
-    parser.add_argument('--model_file', default='', help='path to the trained model file')
-    parser.add_argument('--model_file2', default='', help='use (model_file2 - model_file) as the xdirection')
-    parser.add_argument('--model_file3', default='', help='use (model_file3 - model_file) as the ydirection')
-    parser.add_argument('--loss_name', '-l', default='crossentropy', help='loss functions: crossentropy | mse')
-
-    # direction parameters
-    parser.add_argument('--dir_file', default='', help='specify the name of direction file, or the path to an eisting direction file')
-    parser.add_argument('--dir_type', default='weights', help='direction type: weights | states (including BN\'s running_mean/var)')
-    parser.add_argument('--x', default='-1:1:51', help='A string with format xmin:x_max:xnum')
-    parser.add_argument('--y', default=None, help='A string with format ymin:ymax:ynum')
-    parser.add_argument('--xnorm', default='', help='direction normalization: filter | layer | weight')
-    parser.add_argument('--ynorm', default='', help='direction normalization: filter | layer | weight')
-    parser.add_argument('--xignore', default='', help='ignore bias and BN parameters: biasbn')
-    parser.add_argument('--yignore', default='', help='ignore bias and BN parameters: biasbn')
-    parser.add_argument('--same_dir', action='store_true', default=False, help='use the same random direction for both x-axis and y-axis')
-    parser.add_argument('--idx', default=0, type=int, help='the index for the repeatness experiment')
-    parser.add_argument('--surf_file', default='', help='customize the name of surface file, could be an existing file.')
-
-    # plot parameters
-    parser.add_argument('--proj_file', default='', help='the .h5 file contains projected optimization trajectory.')
-    parser.add_argument('--loss_max', default=5, type=float, help='Maximum value to show in 1D plot')
-    parser.add_argument('--vmax', default=10, type=float, help='Maximum value to map')
-    parser.add_argument('--vmin', default=0.1, type=float, help='Miminum value to map')
-    parser.add_argument('--vlevel', default=0.5, type=float, help='plot contours every vlevel')
-    parser.add_argument('--show', action='store_true', default=False, help='show plotted figures')
-    parser.add_argument('--log', action='store_true', default=False, help='use log scale for loss values')
-    parser.add_argument('--plot', action='store_true', default=False, help='plot figures after computation')
-
-    # constraint parameters
-    # constraint parameters
-    parser.add_argument('--constraint', default=None, help='constraint: max_norm')
-    parser.add_argument('--max_norm_val', default=3, help='max of weight norm to be used with max norm constraint')
-
-    args = parser.parse_args()
+def main(args):
 
     torch.manual_seed(123)
     #--------------------------------------------------------------------------
@@ -296,7 +262,7 @@ if __name__ == '__main__':
     # crunch(surf_file, net, w, s, d, testloader, 'test_loss', 'test_acc', comm, rank, args)
 
     #--------------------------------------------------------------------------
-    # Plot figures
+    # Plot figures (may be just save and not show (use param))
     #--------------------------------------------------------------------------
     if args.plot and rank == 0:
         if args.y and args.proj_file:
@@ -305,3 +271,79 @@ if __name__ == '__main__':
             plot_2D.plot_2d_contour(surf_file, 'train_loss', args.vmin, args.vmax, args.vlevel, args.show)
         else:
             plot_1D.plot_1d_loss_err(surf_file, args.xmin, args.xmax, args.loss_max, args.log, args.show)
+    
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='plotting loss surface')
+    parser.add_argument('--mpi', '-m', action='store_true', help='use mpi')
+    parser.add_argument('--cuda', '-c', action='store_true', help='use cuda')
+    parser.add_argument('--threads', default=2, type=int, help='number of threads')
+    parser.add_argument('--ngpu', type=int, default=1, help='number of GPUs to use for each rank, useful for data parallel evaluation')
+    parser.add_argument('--batch_size', default=128, type=int, help='minibatch size')
+
+    # data parameters
+    parser.add_argument('--dataset', default='cifar10', help='cifar10 | imagenet')
+    parser.add_argument('--datapath', default='cifar10/data', metavar='DIR', help='path to the dataset')
+    parser.add_argument('--raw_data', action='store_true', default=False, help='no data preprocessing')
+    parser.add_argument('--data_split', default=1, type=int, help='the number of splits for the dataloader')
+    parser.add_argument('--split_idx', default=0, type=int, help='the index of data splits for the dataloader')
+    parser.add_argument('--trainloader', default='', help='path to the dataloader with random labels')
+    parser.add_argument('--testloader', default='', help='path to the testloader with random labels')
+
+    # model parameters
+    parser.add_argument('--model', default='resnet56', help='model name')
+    parser.add_argument('--model_folder', default='', help='the common folder that contains model_file and model_file2')
+    parser.add_argument('--model_file', default='', help='path to the trained model file')
+    parser.add_argument('--model_file2', default='', help='use (model_file2 - model_file) as the xdirection')
+    parser.add_argument('--model_file3', default='', help='use (model_file3 - model_file) as the ydirection')
+    parser.add_argument('--loss_name', '-l', default='crossentropy', help='loss functions: crossentropy | mse')
+
+    # direction parameters
+    parser.add_argument('--dir_file', default='', help='specify the name of direction file, or the path to an eisting direction file. Use prefix of files instead of ipca > 0')
+    parser.add_argument('--dir_type', default='weights', help='direction type: weights | states (including BN\'s running_mean/var)')
+    parser.add_argument('--x', default='-1:1:51', help='A string with format xmin:x_max:xnum')
+    parser.add_argument('--y', default=None, help='A string with format ymin:ymax:ynum')
+    parser.add_argument('--xnorm', default='', help='direction normalization: filter | layer | weight')
+    parser.add_argument('--ynorm', default='', help='direction normalization: filter | layer | weight')
+    parser.add_argument('--xignore', default='', help='ignore bias and BN parameters: biasbn')
+    parser.add_argument('--yignore', default='', help='ignore bias and BN parameters: biasbn')
+    parser.add_argument('--same_dir', action='store_true', default=False, help='use the same random direction for both x-axis and y-axis')
+    parser.add_argument('--idx', default=0, type=int, help='the index for the repeatness experiment')
+    parser.add_argument('--surf_file', default='', help='customize the name of surface file, could be an existing file.')
+    parser.add_argument('--ipca', default=0, type=int, help='number of PCA directions to find the plot of')
+
+    # plot parameters
+    parser.add_argument('--proj_file', default='', help='the .h5 file contains projected optimization trajectory.')
+    parser.add_argument('--loss_max', default=5, type=float, help='Maximum value to show in 1D plot')
+    parser.add_argument('--vmax', default=10, type=float, help='Maximum value to map')
+    parser.add_argument('--vmin', default=0.1, type=float, help='Miminum value to map')
+    parser.add_argument('--vlevel', default=0.5, type=float, help='plot contours every vlevel')
+    parser.add_argument('--show', action='store_true', default=False, help='show plotted figures')
+    parser.add_argument('--log', action='store_true', default=False, help='use log scale for loss values')
+    parser.add_argument('--plot', action='store_true', default=False, help='plot figures after computation')
+
+    # constraint parameters
+    parser.add_argument('--constraint', default=None, help='constraint: max_norm | SRIP')
+    parser.add_argument('--max_norm_val', default=3, help='max of weight norm to be used with max norm constraint')
+    parser.add_argument('--reg_rate', default=0.01, type=float, help='regularizer constant to be used with SRIP regularizer')
+    parset.add_argument('--modify_plane', default=False, help='Modify the weights to follow constraints')
+
+    args = parser.parse_args()
+    
+    if constraint == 'max_norm':
+        assert args.max_norm_val > 0, "max_norm_val must be greater than 0"
+    
+    # pre-define range
+    if args.ipca > 0:
+        xdomains = []
+        assert len(xdomains) >= args.ipca, 'number of x domains must be same or greater than ipca'
+        ydomains = []
+        assert len(ydomains) >= args.ipca, 'number of y domains must be same or greater than ipca'
+        
+        prefix = args.dir_file
+        for i in range(args.ipca):
+            args.x, arg.y = xdomains[i], ydomains[i]
+            args.dir_file = prefix + '_iter_' + str(i) + '.h5'
+            main(args)
+    else:
+        main(args)
+           

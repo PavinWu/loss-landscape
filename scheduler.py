@@ -50,9 +50,9 @@ def split_inds(num_inds, nproc):
     splitted_idx = []
     for rank in range(0, nproc):
         # Set the starting index for this slice
-        start_idx = rank * chunk + min(rank, remainder)
+        start_idx = rank * chunk + min(rank, remainder)     # min: offset due to extra inds (add into next rank offset)
         # The stopping index can't go beyond the end of the array
-        stop_idx = start_idx + chunk + (rank < remainder)
+        stop_idx = start_idx + chunk + (rank < remainder)   # +1 for each rank
         splitted_idx.append(range(start_idx, stop_idx))
 
     return splitted_idx
@@ -78,7 +78,7 @@ def get_job_indices(vals, xcoordinates, ycoordinates, comm):
 
     rank = 0 if comm is None else comm.Get_rank()
     nproc = 1 if comm is None else comm.Get_size()
-    splitted_idx = split_inds(len(inds), nproc)
+    splitted_idx = split_inds(len(inds), nproc)     # indices for each rank to compute (2D list)
 
     # Split the indices over the available MPI processes
     inds = inds[splitted_idx[rank]]
@@ -87,4 +87,4 @@ def get_job_indices(vals, xcoordinates, ycoordinates, comm):
     # Figure out the number of jobs that each MPI process needs to calculate.
     inds_nums = [len(idx) for idx in splitted_idx]
 
-    return inds, coords, inds_nums
+    return inds, coords, inds_nums  # for each process, each process, all processes

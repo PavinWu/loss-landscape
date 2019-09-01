@@ -17,7 +17,7 @@ def get_weights(net):
     return [p.data for p in net.parameters()]
 
 
-def set_weights(net, weights, directions=None, step=None):    
+def set_weights(net, weights, directions=None, step=None, args):    
     """
         Overwrite the network's weights with a specified list of tensors
         or change weights along directions with a step size.
@@ -36,11 +36,15 @@ def set_weights(net, weights, directions=None, step=None):
         else:
             changes = [d*step for d in directions[0]]
 
-        for (p, w, d) in zip(net.parameters(), weights, changes):
-            p.data = w + torch.Tensor(d).type(type(w))
+        if args.ipca > 0:
+            for (p, w, d) in zip(net.parameters(), weights, changes):
+                p.data = torch.Tensor(d).type(type(w))
+        else:
+            for (p, w, d) in zip(net.parameters(), weights, changes):
+                p.data = w + torch.Tensor(d).type(type(w))
 
 
-def set_states(net, states, directions=None, step=None):
+def set_states(net, states, directions=None, step=None, args):
     """
         Overwrite the network's state_dict or change it along directions with a step size.
     """
@@ -57,9 +61,14 @@ def set_states(net, states, directions=None, step=None):
 
         new_states = copy.deepcopy(states)
         assert (len(new_states) == len(changes))
-        for (k, v), d in zip(new_states.items(), changes):
-            d = torch.tensor(d)
-            v.add_(d.type(v.type()))
+        if args.ipca > 0:
+            for (k, v), d in zip(new_states.items(), changes):
+                d = torch.tensor(d)
+                v.copy_(d.type(v.type()))
+        else:
+            for (k, v), d in zip(new_states.items(), changes):
+                d = torch.tensor(d)
+                v.add_(d.type(v.type()))
 
         net.load_state_dict(new_states)
 

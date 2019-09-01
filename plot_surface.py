@@ -117,9 +117,9 @@ def crunch(surf_file, net, w, s, d, dataloader, loss_key, acc_key, comm, rank, a
 
         # Load the weights corresponding to those coordinates into the net
         if args.dir_type == 'weights':
-            net_plotter.set_weights(net.module if args.ngpu > 1 else net, w, d, coord, args)  # return whether in constraints if msx norm
+            net_plotter.set_weights(net.module if args.ngpu > 1 else net, w, d, coord, args.ipca)  # return whether in constraints if msx norm
         elif args.dir_type == 'states':
-            net_plotter.set_states(net.module if args.ngpu > 1 else net, s, d, coord, args)
+            net_plotter.set_states(net.module if args.ngpu > 1 else net, s, d, coord, args.ipca)
         # constrain the weights to constr_param, or mark if out of bound? both!
         if args.constraint == 'max_norm':
             if args.modify_plane:

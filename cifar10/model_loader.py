@@ -1,7 +1,7 @@
 import os
 import torch, torchvision
-"""
-# if use with cifar10 as working directory
+
+# if use cifar10 as working directory
 import models.vgg as vgg
 import models.resnet as resnet
 import models.densenet as densenet
@@ -9,6 +9,7 @@ import models.densenet as densenet
 import cifar10.models.vgg as vgg
 import cifar10.models.resnet as resnet
 import cifar10.models.densenet as densenet
+"""
 
 # map between model name and function
 models = {

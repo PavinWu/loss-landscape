@@ -8,8 +8,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 import time
 from torch.autograd.variable import Variable
+from cifar10.constraints import SRIP
 
-def eval_loss(net, criterion, loader, use_cuda=False):
+def eval_loss(net, criterion, loader, use_cuda=False, constraint=None, constr_param=0): # constraint SRIP
     """
     Evaluate the loss value for a given 'net' on the dataset provided by the loader.
 
@@ -41,11 +42,14 @@ def eval_loss(net, criterion, loader, use_cuda=False):
                     inputs, targets = inputs.cuda(), targets.cuda()
                 outputs = net(inputs)
                 loss = criterion(outputs, targets)
+                if constraint == 'SRIP':
+                    reg_loss = Variable(constraints.SRIP(net, constr_param))
+                    loss += reg_loss
                 total_loss += loss.item()*batch_size
                 _, predicted = torch.max(outputs.data, 1)
                 correct += predicted.eq(targets).sum().item()
 
-        elif isinstance(criterion, nn.MSELoss):
+        elif isinstance(criterion, nn.MSELoss):     # not used in this experiment
             for batch_idx, (inputs, targets) in enumerate(loader):
                 batch_size = inputs.size(0)
                 total += batch_size

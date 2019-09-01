@@ -174,7 +174,7 @@ def name_save_folder(args):
 
     
 if __name__ == '__main__':
-    # e.g. parameter to use: --batch_size 64 --save_epoch 3 --model 'resnet56' --resume_model 'trained_nets\resnet56_sgd_lr=0.1_bs=8_wd=0.0005_mom=0.9_save_epoch=3\model_18.t7' --resume_opt 'trained_nets\resnet56_sgd_lr=0.1_bs=8_wd=0.0005_mom=0.9_save_epoch=3\opt_state_18.t7'
+    # e.g. parameter to use: --batch_size 128 --save_epoch 3 --model 'resnet56' --resume_model 'trained_nets\resnet56_sgd_lr=0.1_bs=8_wd=0.0005_mom=0.9_save_epoch=3\model_18.t7' --resume_opt 'trained_nets\resnet56_sgd_lr=0.1_bs=8_wd=0.0005_mom=0.9_save_epoch=3\opt_state_18.t7'
 
     # Training options
     parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
@@ -280,11 +280,11 @@ if __name__ == '__main__':
     # Optimizer
     if args.optimizer == 'sgd':
         optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay, nesterov=True)
-        if constraint == 'max_norm':
+        if args.constraint == 'max_norm':
             temp_opt = optim.SGD(net.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay, nesterov=True)
     else:
         optimizer = optim.Adam(net.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-        if constraint == 'max_norm':
+        if args.constraint == 'max_norm':
             temp_opt = optim.Adam(net.parameters(), lr=args.lr, weight_decay=args.weight_decay)
 
     if args.resume_opt:
@@ -292,7 +292,7 @@ if __name__ == '__main__':
         optimizer.load_state_dict(checkpoint_opt['optimizer'])
         
     # temp model to save intermediate states
-    if constraint == 'max_norm':
+    if args.constraint == 'max_norm':
         temp_net = model_loader.load(args.model)
         init_params(temp_net)
     else:

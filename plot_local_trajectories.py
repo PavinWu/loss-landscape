@@ -35,6 +35,7 @@ if __name__ == '__main__':
     parser.add_argument('--dir_file', default='', help='load the direction file for projection')
     parser.add_argument('--num_local_epoch', default=5, type=int, 
         help='number of weight vectors to be used in local PCA direction, must be divisible by (max_epoch-start_epoch)/save_epoch')
+    parser.add_argument('--add_bc_models', action='store_true', default=False, help='Add model before constraints into PCA calculations')
 
     args = parser.parse_args()
 
@@ -68,6 +69,12 @@ if __name__ == '__main__':
             assert os.path.exists(model_file), 'model %s does not exist' % model_file
             current_model_files.append(model_file)
             model_files.append(model_file)
+            
+            if args.add_bc_models:
+                model_file = args.model_folder + '/' + args.prefix + 'bc_' + str(epoch) + args.suffix
+                assert os.path.exists(model_file), 'model %s does not exist' % model_file
+                current_model_files.append(model_file)
+                model_files.append(model_file)
 
         #--------------------------------------------------------------------------
         # load or create projection directions
@@ -85,4 +92,4 @@ if __name__ == '__main__':
         proj_file = project_trajectory(dir_file, w, s, args.dataset, args.model,
                                     model_files, args.dir_type, 'cos', i_pca)  # TODO
         #plot_2D.plot_trajectory(proj_file, dir_file) 
-        print("Finished iteration: " + str(i_pca) + ". Time: " + str(time.time()-start_time) + " s")
+        print("Finished iteration: " + str(i_pca) + ". Time: " + str(time.time()-start_time) + " s\n")

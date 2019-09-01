@@ -75,7 +75,7 @@ if __name__ == '__main__':
         if args.dir_file:
             dir_file = args.dir_file
         else:
-            dir_file = setup_PCA_directions(args, model_files, w, s, i_pca)
+            dir_file = setup_PCA_directions(args, current_model_files, w, s, i_pca)
 
         #--------------------------------------------------------------------------
         # projection trajectory to given directions

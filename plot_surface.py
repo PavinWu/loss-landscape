@@ -258,7 +258,7 @@ def main(args):
     #--------------------------------------------------------------------------
     # Start the computation
     #--------------------------------------------------------------------------
-    crunch(surf_file, net, w, s, d, trainloader, 'train_loss', 'train_acc', comm, rank, args, constraint)
+    crunch(surf_file, net, w, s, d, trainloader, 'train_loss', 'train_acc', comm, rank, args, args.constraint)
     # crunch(surf_file, net, w, s, d, testloader, 'test_loss', 'test_acc', comm, rank, args)
 
     #--------------------------------------------------------------------------
@@ -273,6 +273,9 @@ def main(args):
             plot_1D.plot_1d_loss_err(surf_file, args.xmin, args.xmax, args.loss_max, args.log, args.show)
     
 if __name__ == '__main__':
+    # use 
+    # mpirun -n 1 python plot_surface.py --mpi --cuda --model resnet56 --ipca 7 --ngpu 2 --model_file cifar10/trained_nets/resnet56_sgd_lr=0.1_bs=128_wd=0.0005_mom=0.9_save_epoch=3/model_300.t7  --dir_file cifar10/trained_nets/resnet56_sgd_lr=0.1_bs=128_wd=0.0005_mom=0.9_save_epoch=3/PCA_weights_save_epoch=3/directions
+
     parser = argparse.ArgumentParser(description='plotting loss surface')
     parser.add_argument('--mpi', '-m', action='store_true', help='use mpi')
     parser.add_argument('--cuda', '-c', action='store_true', help='use cuda')
@@ -298,7 +301,7 @@ if __name__ == '__main__':
     parser.add_argument('--loss_name', '-l', default='crossentropy', help='loss functions: crossentropy | mse')
 
     # direction parameters
-    parser.add_argument('--dir_file', default='', help='specify the name of direction file, or the path to an eisting direction file. Use prefix of files instead of ipca > 0')
+    parser.add_argument('--dir_file', default='', help='specify the name of direction file, or the path to an eisting direction file. Use prefix of files instead for ipca > 0')
     parser.add_argument('--dir_type', default='weights', help='direction type: weights | states (including BN\'s running_mean/var)')
     parser.add_argument('--x', default='-1:1:51', help='A string with format xmin:x_max:xnum')
     parser.add_argument('--y', default=None, help='A string with format ymin:ymax:ynum')
@@ -325,7 +328,7 @@ if __name__ == '__main__':
     parser.add_argument('--constraint', default=None, help='constraint: max_norm | SRIP')
     parser.add_argument('--max_norm_val', default=3, help='max of weight norm to be used with max norm constraint')
     parser.add_argument('--reg_rate', default=0.01, type=float, help='regularizer constant to be used with SRIP regularizer')
-    parset.add_argument('--modify_plane', default=False, help='Modify the weights to follow constraints')
+    parser.add_argument('--modify_plane', default=False, help='Modify the weights to follow constraints')
 
     args = parser.parse_args()
     
@@ -338,7 +341,7 @@ if __name__ == '__main__':
                      '-13:0.5:14',
                      '-12:0.5:12',
                      '-7:0.5:16',
-                     '1:0.3:16+1',
+                     '1:0.3:17',
                      '-3:0.2:6',
                      '19:0.02:20']
         assert len(xdomains) >= args.ipca, 'number of x domains must be same or greater than ipca'
@@ -356,6 +359,7 @@ if __name__ == '__main__':
             args.x, arg.y = xdomains[i], ydomains[i]
             args.dir_file = prefix + '_iter_' + str(i) + '.h5'
             main(args)
+            print("Finished iter: " + str(i))
     else:
         main(args)
            

@@ -258,7 +258,7 @@ def main(args):
     #--------------------------------------------------------------------------
     # Start the computation
     #--------------------------------------------------------------------------
-    crunch(surf_file, net, w, s, d, trainloader, 'train_loss', 'train_acc', comm, rank, args, args.constraint)
+    crunch(surf_file, net, w, s, d, trainloader, 'train_loss', 'train_acc', comm, rank, args)
     # crunch(surf_file, net, w, s, d, testloader, 'test_loss', 'test_acc', comm, rank, args)
 
     #--------------------------------------------------------------------------
@@ -332,7 +332,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     
-    if constraint == 'max_norm':
+    if args.constraint == 'max_norm':
         assert args.max_norm_val > 0, "max_norm_val must be greater than 0"
     
     # pre-define range
@@ -356,7 +356,7 @@ if __name__ == '__main__':
         
         prefix = args.dir_file
         for i in range(args.ipca):
-            args.x, arg.y = xdomains[i], ydomains[i]
+            args.x, args.y = xdomains[i], ydomains[i]
             args.dir_file = prefix + '_iter_' + str(i) + '.h5'
             main(args)
             print("Finished iter: " + str(i))

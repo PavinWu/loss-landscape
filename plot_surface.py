@@ -37,7 +37,7 @@ def name_surface_file(args, dir_file, index=0):
     surf_file += '_[%s,%s,%d]' % (str(args.xmin), str(args.xmax), int(args.xnum))
     if args.y:
         surf_file += 'x[%s,%s,%d]' % (str(args.ymin), str(args.ymax), int(args.ynum))
-    surf_file += _'Index=' + str(index)
+    surf_file += '_Index=' + str(index)
 
     # dataloder parameters
     if args.raw_data: # without data normalization
@@ -334,9 +334,21 @@ if __name__ == '__main__':
     
     # pre-define range
     if args.ipca > 0:
-        xdomains = []
+        xdomains = ['-10:1:41', 
+                     '-13:0.5:14',
+                     '-12:0.5:12',
+                     '-7:0.5:16',
+                     '1:0.3:16+1',
+                     '-3:0.2:6',
+                     '19:0.02:20']
         assert len(xdomains) >= args.ipca, 'number of x domains must be same or greater than ipca'
-        ydomains = []
+        ydomains = ['-17:0.5:14', 
+                     '-5:0.4:14',           # ends at 13.8
+                     '-6:0.4:13',
+                     '-5:0.5:16',
+                     '-6:0.2:2',
+                     '-1:0.2:6',            
+                     '-0.3:0.01:0.12']
         assert len(ydomains) >= args.ipca, 'number of y domains must be same or greater than ipca'
         
         prefix = args.dir_file

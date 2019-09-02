@@ -337,21 +337,21 @@ if __name__ == '__main__':
     
     # pre-define range
     if args.ipca > 0:
-        xdomains = ['-10:1:41', 
-                     '-13:0.5:14',
-                     '-12:0.5:12',
-                     '-7:0.5:16',
-                     '1:0.3:17',
-                     '-3:0.2:6',
-                     '19:0.02:20']
+        xdomains = ['-10:40:50',
+                     '-13:14:50',
+                     '-12:12:50',
+                     '-7:16:50',
+                     '1:17:50',
+                     '-3:6:50',
+                     '19:20:50']
         assert len(xdomains) >= args.ipca, 'number of x domains must be same or greater than ipca'
-        ydomains = ['-17:0.5:14', 
-                     '-5:0.4:14',           # ends at 13.8
-                     '-6:0.4:13',
-                     '-5:0.5:16',
-                     '-6:0.2:2',
-                     '-1:0.2:6',            
-                     '-0.3:0.01:0.12']
+        ydomains = ['-17:14:50',
+                     '-5:14:50',
+                     '-6:13:50',
+                     '-5:16:50',
+                     '-6:2:50',
+                     '-1:6:50',
+                     '-0.3:0.12:50']
         assert len(ydomains) >= args.ipca, 'number of y domains must be same or greater than ipca'
         
         prefix = args.dir_file

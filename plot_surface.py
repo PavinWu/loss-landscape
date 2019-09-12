@@ -274,7 +274,7 @@ def main(args):
     
 if __name__ == '__main__':
     # use 
-    # mpirun -n 1 python plot_surface.py --mpi --cuda --model resnet56 --ipca 7 --ngpu 2 --model_file cifar10/trained_nets/resnet56_sgd_lr=0.1_bs=128_wd=0.0005_mom=0.9_save_epoch=3/model_300.t7  --dir_file cifar10/trained_nets/resnet56_sgd_lr=0.1_bs=128_wd=0.0005_mom=0.9_save_epoch=3/PCA_weights_save_epoch=3/directions
+    # mpirun -n 1 python plot_surface.py --mpi --cuda --model resnet56 --ipca 7 --ngpu 2 --xignore biasbn --yignore biasbn --model_file cifar10/trained_nets/resnet56_sgd_lr=0.1_bs=128_wd=0.0005_mom=0.9_save_epoch=3/model_300.t7  --dir_file cifar10/trained_nets/resnet56_sgd_lr=0.1_bs=128_wd=0.0005_mom=0.9_save_epoch=3/PCA_weights_save_epoch=3/directions
 
     parser = argparse.ArgumentParser(description='plotting loss surface')
     parser.add_argument('--mpi', '-m', action='store_true', help='use mpi')
@@ -313,6 +313,7 @@ if __name__ == '__main__':
     parser.add_argument('--idx', default=0, type=int, help='the index for the repeatness experiment')
     parser.add_argument('--surf_file', default='', help='customize the name of surface file, could be an existing file.')
     parser.add_argument('--ipca', default=0, type=int, help='number of PCA directions to find the plot of')
+    parser.add_argument('--icpca', default=0, type=int, help='number of PCA direction to continue from')
 
     # plot parameters
     parser.add_argument('--proj_file', default='', help='the .h5 file contains projected optimization trajectory.')
@@ -355,7 +356,7 @@ if __name__ == '__main__':
         assert len(ydomains) >= args.ipca, 'number of y domains must be same or greater than ipca'
         
         prefix = args.dir_file
-        for i in range(args.ipca):
+        for i in range(args.icpca, args.ipca):
             args.x, args.y = xdomains[i], ydomains[i]
             args.dir_file = prefix + '_iter_' + str(i) + '.h5'
             main(args)

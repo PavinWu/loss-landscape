@@ -24,6 +24,7 @@ import model_loader
 import scheduler
 import mpi4pytorch as mpi
 import cifar10.constraints as constraints
+import subplanes
 
 def name_surface_file(args, dir_file, index=0):
     # skip if surf_file is specified in args
@@ -312,8 +313,6 @@ if __name__ == '__main__':
     parser.add_argument('--same_dir', action='store_true', default=False, help='use the same random direction for both x-axis and y-axis')
     parser.add_argument('--idx', default=0, type=int, help='the index for the repeatness experiment')
     parser.add_argument('--surf_file', default='', help='customize the name of surface file, could be an existing file.')
-    parser.add_argument('--ipca', default=0, type=int, help='number of PCA directions to find the plot of')
-    parser.add_argument('--icpca', default=0, type=int, help='number of PCA direction to continue from')
 
     # plot parameters
     parser.add_argument('--proj_file', default='', help='the .h5 file contains projected optimization trajectory.')
@@ -325,6 +324,15 @@ if __name__ == '__main__':
     parser.add_argument('--log', action='store_true', default=False, help='use log scale for loss values')
     parser.add_argument('--plot', action='store_true', default=False, help='plot figures after computation')
 
+    # local PCA parameters
+    parser.add_argument('--ipca', default=0, type=int, help='number of PCA directions to find the plot of')
+    parser.add_argument('--icpca', default=0, type=int, help='number of PCA direction to continue from')
+    parser.add_argument('--isubplanes', default=1, type=int, help='number of subplanes. Normal 2D plot if 1')
+    parser.add_argument('--ptj_prefix', default='', help='prefix for projected trajectory files')
+    parser.add_argument('--ptj_midfix', default='', help='middle text between iteration number')    # needed this because naming error when creating the projected files
+    parser.add_argument('--ptj_suffix', default='', help='suffix for projected trajectory files')
+    parser.add_argument('--num_w_per_pca', default=14, type=int, help='number of weight per PCA plot')  # for use with isubplanes
+
     # constraint parameters
     parser.add_argument('--constraint', default=None, help='constraint: max_norm | SRIP')
     parser.add_argument('--max_norm_val', default=3, help='max of weight norm to be used with max norm constraint')
@@ -335,9 +343,11 @@ if __name__ == '__main__':
     
     if args.constraint == 'max_norm':
         assert args.max_norm_val > 0, "max_norm_val must be greater than 0"
+    assert args.isubplanes > 0, "subplanes must be greater than 0"
     
     # pre-define range
     if args.ipca > 0:
+        # cannot use 0, or will assert false
         xdomains = ['-10:1:41', 
                      '-13:0.5:14',
                      '-12:0.5:12',
@@ -356,9 +366,16 @@ if __name__ == '__main__':
         assert len(ydomains) >= args.ipca, 'number of y domains must be same or greater than ipca'
         
         prefix = args.dir_file
+        ptj_file = ''
         for i in range(args.icpca, args.ipca):
             args.x, args.y = xdomains[i], ydomains[i]
             args.dir_file = prefix + '_iter_' + str(i) + '.h5'
+            
+            if args.isubplanes > 1:
+                ptj_file = args.ptj_prefix + str(i) + args.ptj_midfix + str(i) + args.ptj_suffix
+                assert os.path.exists(ptj_file), "projected file %s does not exist" % ptj_file
+                args.blist = subplanes.boundary_list(ptj_file, args.isubplanes, args.num_w_per_pca)
+                assert args.blist is not None, "error processing boundary list"
             main(args)
             print("Finished iter: " + str(i))
     else:

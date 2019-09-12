@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import time
 from torch.autograd.variable import Variable
-from cifar10.constraints import SRIP
+import cifar10.constraints as constraints
 
 def eval_loss(net, criterion, loader, use_cuda=False, constraint=None, constr_param=0): # constraint SRIP
     """

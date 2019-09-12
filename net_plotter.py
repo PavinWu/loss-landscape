@@ -36,10 +36,10 @@ def set_weights(net, weights, directions=None, step=None, ipca=0):
         else:
             changes = [d*step for d in directions[0]]
 
-        if ipca > 0:
+        if ipca > 0:    
             for (p, w, d) in zip(net.parameters(), weights, changes):
                 p.data = torch.Tensor(d).type(type(w))
-        else:
+        else:       # original code
             for (p, w, d) in zip(net.parameters(), weights, changes):
                 p.data = w + torch.Tensor(d).type(type(w))
 

@@ -76,7 +76,7 @@ def reduce_max(comm, array, display_info=False):
         cols = str(comm.gather(array.shape[1]))
         print_once(comm, "reduce: %s, %s"%(rows, cols))
 
-    comm.Reduce(array, total, op=mpi4py.MPI.MAX, root=0)
+    total = comm.reduce(array, op=mpi4py.MPI.MAX, root=0)
     return total
 
 def reduce_min(comm, array, display_info=False):
@@ -93,7 +93,7 @@ def reduce_min(comm, array, display_info=False):
         cols = str(comm.gather(array.shape[1]))
         print_once(comm, "reduce: %s, %s"%(rows, cols))
 
-    comm.Reduce(array, total, op=mpi4py.MPI.MIN, root=0)
+    total = comm.reduce(array, op=mpi4py.MPI.MAX, root=0)
     return total
 
 def barrier(comm):

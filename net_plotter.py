@@ -8,6 +8,7 @@ from os.path import exists, commonprefix
 import h5py
 import h5_util
 import model_loader
+import subplanes
 
 ################################################################################
 #                 Supporting functions for weights manipulation
@@ -16,8 +17,10 @@ def get_weights(net):
     """ Extract parameters from net, and return a list of tensors"""
     return [p.data for p in net.parameters()]
 
+def get_model_name(model_folder, iw):
+    return model_folder + '/' + 'model_' + str(iw) + '.t7'
 
-def set_weights(net, weights, directions=None, step=None, ipca=0):    
+def set_weights(net, weights, directions=None, step=None, ipca=0, boundary=None):    
     """
         Overwrite the network's weights with a specified list of tensors
         or change weights along directions with a step size.
@@ -32,9 +35,20 @@ def set_weights(net, weights, directions=None, step=None, ipca=0):
         if len(directions) == 2:
             dx = directions[0]
             dy = directions[1]
-            changes = [d0*step[0] + d1*step[1] for (d0, d1) in zip(dx, dy)]
+            
+            offset = 0
+            if boundary is not None:
+                xl, xr = boundary['xl'], boundary['xr']
+                yl, yr = boundary['yl'], boundary['yr']
+                wl, wr = boundary['wl'], boundary['wr']
+                cl, cr = (xr-step[0])/(xr-xl), (step[0]-xl)/(xr-xl)
+                # offset it from dx, dy. TODO Future work: put these into h5 file, so don't need to recompute offsets ?
+                newstep = np.array([0, 0], dtype=np.float32)
+                newstep[0], newstep[1] = (step[0]-cl*xl-cr*xr), (step[1]-cl*yl-cr*yr)
+                step = newstep
+            changes = [(d0*step[0] + d1*step[1]) + (wl0*cl + wr0*cr) for (d0, d1, wl0, wr0) in zip(dx, dy, wl, wr)]
         else:
-            changes = [d*step for d in directions[0]]
+            changes = [d*step for d in directions[0]]       # have not tested the changes with 1D
 
         if ipca > 0:    
             for (p, w, d) in zip(net.parameters(), weights, changes):
@@ -44,7 +58,7 @@ def set_weights(net, weights, directions=None, step=None, ipca=0):
                 p.data = w + torch.Tensor(d).type(type(w))
 
 
-def set_states(net, states, directions=None, step=None, ipca=0):
+def set_states(net, states, directions=None, step=None, ipca=0, boundary=None):
     """
         Overwrite the network's state_dict or change it along directions with a step size.
     """
@@ -55,9 +69,20 @@ def set_states(net, states, directions=None, step=None, ipca=0):
         if len(directions) == 2:
             dx = directions[0]
             dy = directions[1]
-            changes = [d0*step[0] + d1*step[1] for (d0, d1) in zip(dx, dy)]
+
+            offset = 0
+            if boundary is not None:
+                xl, xr = boundary['xl'], boundary['xr']
+                yl, yr = boundary['yl'], boundary['yr']
+                wl, wr = boundary['wl'], boundary['wr']
+                cl, cr = (xr-step[0])/(xr-xl), (step[0]-xl)/(xr-xl)
+                
+                newstep = np.array([0, 0], dtype=np.float32)
+                newstep[0], newstep[1] = (step[0]-cl*xl-cr*xr), (step[1]-cl*yl-cr*yr)
+                step = newstep
+            changes = [(d0*step[0] + d1*step[1]) + (wl0*cl + wr0*cr) for (d0, d1, wl0, wr0) in zip(dx, dy, wl, wr)]
         else:
-            changes = [d*step for d in directions[0]]
+            changes = [d*step for d in directions[0]]       # have not tested the changes with 1D
 
         new_states = copy.deepcopy(states)
         assert (len(new_states) == len(changes))

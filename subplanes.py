@@ -92,3 +92,25 @@ def boundary_list(projtraj_file, num_plane, num_w_per_pca):
 
     # determine boundaries
     return get_b_list(num_plane, nw_inplane, nw_inplane_left, pjt_list_sorted, print_lists)
+
+def locate_boundary(x, b_list, save_epoch):
+    i = 0
+    l = len(b_list[0])
+    while i < l and x > b_list[i][1]:
+        # linear search: slow, but doesn't matter much (b_list is quite small (at most a hundred something))
+        i += 1
+
+    if i == 0:
+        xl, xr = None, b_list[0][1]
+        yl, yr = None, b_list[0][2]
+        iwl, iwr = None, b_list[0][0]*save_epoch
+    elif i == l:
+        xl, xr = b_list[l-1][1], None
+        yl, yr = b_list[l-1][2], None
+        iwl, iwr = b_list[l-1][0]*save_epoch, None
+    else:
+        xl, xr = b_list[i-1][1], b_list[i][1]
+        yl, yr = b_list[i-1][2], b_list[i][2]
+        iwl, iwr = b_list[i-1][0]*save_epoch, b_list[i][0]*save_epoch
+
+    return xl, xr, yl, yr, iwl, iwr

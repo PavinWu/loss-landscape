@@ -117,10 +117,26 @@ def crunch(surf_file, net, w, s, d, dataloader, loss_key, acc_key, comm, rank, a
         coord = coords[count]
 
         # Load the weights corresponding to those coordinates into the net
+
+        # TODO get net with weights of the two boundary (or just pass b_list?)
+        # TODO pass b_list (need x value of boundary)
+        boundary = None
+        if args.subplanes:
+                # get x and weights at the boundaries 
+                xl, xr, yl, yr, iwl, iwr = subplanes.locate_boundary(coord[0], args.b_list, args.save_epoch)
+                # Load nets with weights of the boundaries
+                netl = model_loader.load(args.dataset, args.model, net_plotter.get_model_name(args.model_folder, iwl))
+                netr = model_loader.load(args.dataset, args.model, net_plotter.get_model_name(args.model_folder, iwr))
+                wl, wr = net_plotter.get_weights(netl), net_plotter.get_weights(netr)
+                boundary = {'wl': wl, 'wr': wr, 
+                            'xl': xl, 'xr': xr,
+                            'yl': yl, 'yr': yr}
+                # Put this to changes
+
         if args.dir_type == 'weights':
-            net_plotter.set_weights(net.module if args.ngpu > 1 else net, w, d, coord, args.ipca)  # return whether in constraints if msx norm
+            net_plotter.set_weights(net.module if args.ngpu > 1 else net, w, d, coord, args.ipca, boundary)  # return whether in constraints if msx norm
         elif args.dir_type == 'states':
-            net_plotter.set_states(net.module if args.ngpu > 1 else net, s, d, coord, args.ipca)
+            net_plotter.set_states(net.module if args.ngpu > 1 else net, s, d, coord, args.ipca, boundary)
         # constrain the weights to constr_param, or mark if out of bound? both!
         if args.constraint == 'max_norm':
             if args.modify_plane:
@@ -327,7 +343,8 @@ if __name__ == '__main__':
     # local PCA parameters
     parser.add_argument('--ipca', default=0, type=int, help='number of PCA directions to find the plot of')
     parser.add_argument('--icpca', default=0, type=int, help='number of PCA direction to continue from')
-    parser.add_argument('--isubplanes', default=1, type=int, help='number of subplanes. Normal 2D plot if 1')
+    parser.add_argument('--subplanes', action='store_true', default=False, help='whether to use subplanes offsets')
+    parser.add_argument('--isubplanes', default=0, type=int, help='number of subplanes. Normal 2D plot if 1')
     parser.add_argument('--ptj_prefix', default='', help='prefix for projected trajectory files')
     parser.add_argument('--ptj_midfix', default='', help='middle text between iteration number')    # needed this because naming error when creating the projected files
     parser.add_argument('--ptj_suffix', default='', help='suffix for projected trajectory files')
@@ -343,7 +360,8 @@ if __name__ == '__main__':
     
     if args.constraint == 'max_norm':
         assert args.max_norm_val > 0, "max_norm_val must be greater than 0"
-    assert args.isubplanes > 0, "subplanes must be greater than 0"
+    if args.subplanes:
+        assert args.isubplanes > 0, "subplanes must be greater than 0"
     
     # pre-define range
     if args.ipca > 0:
@@ -371,7 +389,7 @@ if __name__ == '__main__':
             args.x, args.y = xdomains[i], ydomains[i]
             args.dir_file = prefix + '_iter_' + str(i) + '.h5'
             
-            if args.isubplanes > 1:
+            if args.subplanes and args.isubplanes > 1:
                 ptj_file = args.ptj_prefix + str(i) + args.ptj_midfix + str(i) + args.ptj_suffix
                 assert os.path.exists(ptj_file), "projected file %s does not exist" % ptj_file
                 args.blist = subplanes.boundary_list(ptj_file, args.isubplanes, args.num_w_per_pca)

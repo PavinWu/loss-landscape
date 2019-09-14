@@ -9,6 +9,7 @@ import h5py
 import h5_util
 import model_loader
 import subplanes
+import numpy as np
 
 ################################################################################
 #                 Supporting functions for weights manipulation
@@ -41,12 +42,21 @@ def set_weights(net, weights, directions=None, step=None, ipca=0, boundary=None)
                 xl, xr = boundary['xl'], boundary['xr']
                 yl, yr = boundary['yl'], boundary['yr']
                 wl, wr = boundary['wl'], boundary['wr']
-                cl, cr = (xr-step[0])/(xr-xl), (step[0]-xl)/(xr-xl)
                 # offset it from dx, dy. TODO Future work: put these into h5 file, so don't need to recompute offsets ?
-                newstep = np.array([0, 0], dtype=np.float32)
+                cl, cr = (xr-step[0])/(xr-xl+1e-10), (step[0]-xl)/(xr-xl+1e-10)
+
+                newstep = np.array([0, 0], dtype=np.float64)
                 newstep[0], newstep[1] = (step[0]-cl*xl-cr*xr), (step[1]-cl*yl-cr*yr)
                 step = newstep
-            changes = [(d0*step[0] + d1*step[1]) + (wl0*cl + wr0*cr) for (d0, d1, wl0, wr0) in zip(dx, dy, wl, wr)]
+                changes = [(d0*step[0] + d1*step[1]) + (wl0*cl + wr0*cr).numpy() for (d0, d1, wl0, wr0) in zip(dx, dy, wl, wr)]
+                """
+                changes = []
+                for (d0, d1, wl0, wr0) in zip(dx, dy, wl, wr):
+                    print("orig", type((d0*step[0] + d1*step[1])), "new", type((wl0*cl + wr0*cr).numpy()))
+                    changes.append((d0*step[0] + d1*step[1]) + (wl0*cl + wr0*cr))
+                """
+            else:
+                changes = [(d0*step[0] + d1*step[1]) for (d0, d1) in zip(dx, dy)]
         else:
             changes = [d*step for d in directions[0]]       # have not tested the changes with 1D
 
@@ -75,12 +85,14 @@ def set_states(net, states, directions=None, step=None, ipca=0, boundary=None):
                 xl, xr = boundary['xl'], boundary['xr']
                 yl, yr = boundary['yl'], boundary['yr']
                 wl, wr = boundary['wl'], boundary['wr']
-                cl, cr = (xr-step[0])/(xr-xl), (step[0]-xl)/(xr-xl)
+                cl, cr = (xr-step[0])/(xr-xl+1e-10), (step[0]-xl)/(xr-xl+1e-10)
                 
-                newstep = np.array([0, 0], dtype=np.float32)
+                newstep = np.array([0, 0], dtype=np.float64)
                 newstep[0], newstep[1] = (step[0]-cl*xl-cr*xr), (step[1]-cl*yl-cr*yr)
                 step = newstep
-            changes = [(d0*step[0] + d1*step[1]) + (wl0*cl + wr0*cr) for (d0, d1, wl0, wr0) in zip(dx, dy, wl, wr)]
+                changes = [(d0*step[0] + d1*step[1]) + (wl0*cl + wr0*cr).numpy() for (d0, d1, wl0, wr0) in zip(dx, dy, wl, wr)]
+            else:
+                changes = [(d0*step[0] + d1*step[1]) for (d0, d1) in zip(dx, dy)]
         else:
             changes = [d*step for d in directions[0]]       # have not tested the changes with 1D
 

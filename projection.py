@@ -78,7 +78,7 @@ def cal_angle(vec1, vec2):
         Args:
             vec1, vec2: two tensors or numpy ndarraies
     """
-    if isinstance(vec1, torch.Tensor) and isinstance(vec1, torch.Tensor):
+    if isinstance(vec1, torch.Tensor) and isinstance(vec2, torch.Tensor):
         return torch.dot(vec1, vec2)/(vec1.norm()*vec2.norm()).item()
     elif isinstance(vec1, np.ndarray) and isinstance(vec2, np.ndarray):
         return np.ndarray.dot(vec1, vec2)/(np.linalg.norm(vec1)*np.linalg.norm(vec2))

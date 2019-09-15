@@ -1,6 +1,7 @@
 import h5py
 import net_plotter
 import projection
+from projection import nplist_to_tensor
 
 def x_coord(elem):
     return elem[1]
@@ -165,7 +166,7 @@ def compare_subplanes(args, bound_file, directions):
             changes_row = [(d0*newstep[0] + d1*newstep[1]) + (wl0*cl + wr0*cr).numpy() for (d0, d1, wl0, wr0) in zip(dx, dy, wl, wr)]
 
             xs[i].append((x_col, x_row))
-            angle[i].append(cal_angle(changes_col, changes_row))
+            angle[i].append(cal_angle(nplist_to_tensor(changes_col), nplist_to_tensor(changes_row)))
         
         xs.append([])
         angles.append([])

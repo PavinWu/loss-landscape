@@ -1,7 +1,40 @@
 import h5py
 import net_plotter
-import projection
-from projection import nplist_to_tensor
+import numpy as np
+import model_loader
+import torch
+
+""" from projection.py """
+# moved here from projection.py to prevent circular reference 
+def nplist_to_tensor(nplist):
+    """ Concatenate a list of numpy vectors into one tensor.
+
+        Args:
+            nplist: a list of numpy vectors, e.g., direction loaded from h5 file.
+
+        Returns:
+            concatnated 1D tensor
+    """
+    v = []
+    for d in nplist:
+        w = torch.tensor(d*np.float64(1.0))
+        # Ignoreing the scalar values (w.dim() = 0).
+        if w.dim() > 1:
+            v.append(w.view(w.numel()))
+        elif w.dim() == 1:
+            v.append(w)
+    return torch.cat(v)
+    
+def cal_angle(vec1, vec2):
+    """ Calculate cosine similarities between two torch tensors or two ndarraies
+        Args:
+            vec1, vec2: two tensors or numpy ndarraies
+    """
+    if isinstance(vec1, torch.Tensor) and isinstance(vec2, torch.Tensor):
+        return torch.dot(vec1, vec2)/(vec1.norm()*vec2.norm()).item()
+    elif isinstance(vec1, np.ndarray) and isinstance(vec2, np.ndarray):
+        return np.ndarray.dot(vec1, vec2)/(np.linalg.norm(vec1)*np.linalg.norm(vec2))
+#
 
 def x_coord(elem):
     return elem[1]
@@ -133,54 +166,64 @@ def get_weights_from_iwnet(args, iw):
     net = model_loader.load(args.dataset, args.model, net_plotter.get_model_name(args.model_folder, iw))
     return net_plotter.get_weights(net)
 
-def compare_subplanes(args, bound_file, directions):
+def similarity(args, bound_file, directions):
     """ Get cosine similarities of and distances from all subplanes in a PCA plot """ 
     """ To be used with plot_surface.py (needed to load d)"""
     """ Didn't do this directly in plot_surface.py because .. forgot """
 
-    angles = [[]]
-    xs = [[]]
     dx = directions[0]
     dy = directions[1]
     cl, cr = 0.5, 0.5   
     step = [0, 0]       
 
-    for i, x_col in enumerate(b_dict['x']):
+    f = h5py.File(bound_file, 'r')
+    bound_dict_keys = ['x', 'xl', 'xr', 'yl', 'yr', 'iwl', 'iwr']
+    bound_dict = {k: [] for k in bound_dict_keys}
+
+    for k in bound_dict_keys:
+        bound_dict[k] = f[k][:]     # need [:] to get data (also need to close after no longer need data (ref))
+    b_dict = bound_dict
+    print(b_dict)
+    
+    l = len(b_dict['x'])
+    angles = np.ones([l,l])
+    x_rows = np.ones([l,l])
+    x_cols = np.ones([l,l])
+    angles[:] = np.nan
+    x_rows[:] = np.nan
+    x_cols[:] = np.nan
+    
+    for i, x_row in enumerate(b_dict['x']):
         xl, xr = b_dict['xl'][i], b_dict['xr'][i]
         yl, yr = b_dict['yl'][i], b_dict['yr'][i]
         iwl, iwr = b_dict['iwl'][i], b_dict['iwr'][i]
-        wl, wr = get_weights_from_iwnet(iwl), get_weights_from_iwnet(iwr)
+        wl, wr = get_weights_from_iwnet(args, iwl), get_weights_from_iwnet(args, iwr)
 
         newstep = np.array([0, 0], dtype=np.float64)
         newstep[0], newstep[1] = (step[0]-cl*xl-cr*xr), (step[1]-cl*yl-cr*yr)
         changes_col = [(d0*newstep[0] + d1*newstep[1]) + (wl0*cl + wr0*cr).numpy() for (d0, d1, wl0, wr0) in zip(dx, dy, wl, wr)]
         
-        for j, x_row in enumerate(b_dict['x'][i+1:]):     # symmetric
+        for j, x_col in enumerate(b_dict['x'][i+1:]):     # symmetric
             xl, xr = b_dict['xl'][j], b_dict['xr'][j]
             yl, yr = b_dict['yl'][j], b_dict['yr'][j]
             iwl, iwr = b_dict['iwl'][j], b_dict['iwr'][j]
-            wl, wr = get_weights_from_iwnet(iwl), get_weights_from_iwnet(iwr)
+            wl, wr = get_weights_from_iwnet(args, iwl), get_weights_from_iwnet(args, iwr)
             
             newstep = np.array([0, 0], dtype=np.float64)
             newstep[0], newstep[1] = (step[0]-cl*xl-cr*xr), (step[1]-cl*yl-cr*yr)
             changes_row = [(d0*newstep[0] + d1*newstep[1]) + (wl0*cl + wr0*cr).numpy() for (d0, d1, wl0, wr0) in zip(dx, dy, wl, wr)]
 
-            xs[i].append((x_col, x_row))
-            angle[i].append(cal_angle(nplist_to_tensor(changes_col), nplist_to_tensor(changes_row)))
+            x_rows[i][j] = x_row
+            x_cols[i][j] = x_col
+            angles[i][j] = cal_angle(nplist_to_tensor(changes_col), nplist_to_tensor(changes_row))
         
-        xs.append([])
-        angles.append([])
-    
-    bound_dict_keys = ['x', 'xl', 'xr', 'yl', 'yr', 'iwl', 'iwr']
-    bound_dict = {k: [] for k in bound_dict_keys}
-    f = h5py.File(bound_file, 'r')
-    for k in bound_dict_keys:
-        bound_dict[k] = f[k]
-    f.close()
+        print("Finished row " + str(i))
 
+    f.close()
     comp_file = bound_file[:-3] + 'compare_plane.h5'
     f = h5py.File(comp_file, 'w')
-    f['xs'] = xs
+    f['x_rows'] = x_rows
+    f['x_cols'] = x_cols
     f['angles'] = angles
     f.close()
 
@@ -190,12 +233,8 @@ def compare_subplanes(args, bound_file, directions):
 def boundaries_dict(args, b_list, surf_file):
     """ Get boundaries dict of all x-value of the plot """   
     #not tested 
-    try:
-        args.xmin, args.xmax, args.xnum = [float(a) for a in args.x.split(':')]
-        xcoordinates = np.linspace(args.xmin, args.xmax, num=args.xnum)
-    except:
-        raise Exception('Improper format for x- or y-coordinates. Try something like -1:1:51')
-
+    xcoordinates = np.linspace(args.xmin, args.xmax, num=args.xnum)
+    
     bound_dict_keys = ['x', 'xl', 'xr', 'yl', 'yr', 'iwl', 'iwr']
     bound_dict = {k: [] for k in bound_dict_keys}
     

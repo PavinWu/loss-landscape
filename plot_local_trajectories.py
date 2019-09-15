@@ -49,7 +49,7 @@ if __name__ == '__main__':
     for i_pca in range(num_pca):
         start_time = time.time()    
     
-        offset_start = i_pca*args.num_local_epoch * args.save_epoch
+        offset_start = i_pca*args.num_local_epoch * (args.save_epoch) + args.save_epoch     # skip first entry (duplicate in next iteration)
         offset_end = (i_pca+1)*args.num_local_epoch * args.save_epoch
         
         #--------------------------------------------------------------------------
@@ -65,6 +65,7 @@ if __name__ == '__main__':
         #--------------------------------------------------------------------------
         current_model_files = []
         for epoch in range(args.start_epoch+offset_start, args.start_epoch+offset_end+1, args.save_epoch): # +1 to get to last one
+            print(epoch)
             model_file = args.model_folder + '/' + args.prefix + str(epoch) + args.suffix
             assert os.path.exists(model_file), 'model %s does not exist' % model_file
             current_model_files.append(model_file)

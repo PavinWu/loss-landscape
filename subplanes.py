@@ -113,7 +113,7 @@ def boundary_list(projtraj_file, nw_inplane, num_w_per_pca):
         f.close()
         print("Cannot find projected x and/or y coordinates in " + projtraj_file)
         return None        
-    if nw_inplane > num_w_per_pca + 1:
+    if nw_inplane > num_w_per_pca :
         print("Number of subplane must be less than or equal to number of weights per PCA")
         return None
 
@@ -125,7 +125,7 @@ def boundary_list(projtraj_file, nw_inplane, num_w_per_pca):
     
     # sort projected x coordinates
     x_end = pjt_list[-1][1]
-    x_begin = pjt_list[-(num_w_per_pca+1)][1]   # actual num is + 1
+    x_begin = pjt_list[-(num_w_per_pca)][1]   
     pjt_list_sorted = []
     if x_begin > x_end:     # always make i of x_end comes later
         pjt_list_sorted = sorted(pjt_list, reverse=True, key=x_coord)

@@ -456,10 +456,20 @@ if __name__ == '__main__':
                 assert args.b_list is not None, "error processing boundary list"
 
                 if args.only_find_boundaries:
+                    try:
+                        args.xmin, args.xmax, args.xnum = [float(a) for a in args.x.split(':')]
+                        args.ymin, args.ymax, args.ynum = (None, None, None)
+                        if args.y:
+                            args.ymin, args.ymax, args.ynum = [float(a) for a in args.y.split(':')]
+                            assert args.ymin and args.ymax and args.ynum, \
+                            'You specified some arguments for the y axis, but not all'
+                    except:
+                        raise Exception('Improper format for x- or y-coordinates. Try something like -1:1:51')
+
                     surf_file = name_surface_file(args, args.dir_file)
-                    bound_file = boundaries_dict(args, args.b_list, surf_file)
-                    d = net_plotter.load_directions(dir_file)
-                    compare_subplanes(args, bound_file, d)
+                    bound_file = subplanes.boundaries_dict(args, args.b_list, surf_file)
+                    d = net_plotter.load_directions(args.dir_file)
+                    subplanes.similarity(args, bound_file, d)
 
             if not args.only_find_boundaries:
                 main(args)

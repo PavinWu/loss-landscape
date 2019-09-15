@@ -40,6 +40,9 @@ def name_surface_file(args, dir_file, index=0):
         surf_file += 'x[%s,%s,%d]' % (str(args.ymin), str(args.ymax), int(args.ynum))
     surf_file += '_Index=' + str(index)
 
+    if args.subplanes:
+        surf_file += ('_subplanes_nw=' + str(args.nw_subplane))
+
     # dataloder parameters
     if args.raw_data: # without data normalization
         surf_file += '_rawdata'
@@ -124,7 +127,7 @@ def crunch(surf_file, net, w, s, d, dataloader, loss_key, acc_key, comm, rank, a
         if args.subplanes:
                 # get x and weights at the boundaries 
                 xl, xr, yl, yr, iwl, iwr = subplanes.locate_boundary(coord[0], args.b_list, args.save_epoch)
-                print(xl, xr, yl, yr)
+                print('x:', xl, xr, ', y:', yl, yr, ', iw:', iwl, iwr)
                 # Load nets with weights of the boundaries
                 netl = model_loader.load(args.dataset, args.model, net_plotter.get_model_name(args.model_folder, iwl))
                 netr = model_loader.load(args.dataset, args.model, net_plotter.get_model_name(args.model_folder, iwr))
@@ -294,6 +297,7 @@ if __name__ == '__main__':
     # use 
     # mpirun -n 1 python plot_surface.py --mpi --cuda --model resnet56 --ipca 7 --xignore biasbn --yignore biasbn --model_file cifar10/trained_nets/resnet56_sgd_lr=0.1_bs=128_wd=0.0005_mom=0.9_save_epoch=3/model_300.t7  --dir_file cifar10/trained_nets/resnet56_sgd_lr=0.1_bs=128_wd=0.0005_mom=0.9_save_epoch=3/PCA_weights_save_epoch=3/directions
     # mpirun -n 1 python plot_surface.py --mpi --cuda --model resnet56 --ipca 7 --model_file cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3_constraint\=max_norm_max_norm_val\=4.0/model_300.t7 --dir_file cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3_constraint\=max_norm_max_norm_val\=4.0/PCA_weights_save_epoch=3/directions --ptj_prefix cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3_constraint\=max_norm_max_norm_val\=4.0/PCA_weights_save_epoch=3/directions_iter_ --ptj_midfix .h5_iter_ --ptj_suffix _proj_cos.h5 --subplanes --nw_subplane 3 --constraint max_norm --max_norm_val 4 --save_epoch 3 --model_folder cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3_constraint\=max_norm_max_norm_val\=4.0/
+    # mpirun -n 1 python plot_surface.py --mpi --cuda --model resnet56_noshort --ipca 7 --model_file cifar10/trained_nets/resnet56_noshort_sgd_lr=0.1_bs=128_wd=0.0005_mom=0.9_save_epoch=3_ngpu=2/model_300.t7 --dir_file cifar10/trained_nets/resnet56_noshort_sgd_lr=0.1_bs=128_wd=0.0005_mom=0.9_save_epoch=3_ngpu=2/PCA_weights_save_epoch=3/directions --ptj_prefix cifar10/trained_nets/resnet56_noshort_sgd_lr=0.1_bs=128_wd=0.0005_mom=0.9_save_epoch=3_ngpu=2/PCA_weights_save_epoch=3/directions_iter_ --ptj_midfix .h5_iter_ --ptj_suffix _proj_cos.h5 --subplanes --nw_subplane 2 --save_epoch 3 --model_folder cifar10/trained_nets/resnet56_noshort_sgd_lr=0.1_bs=128_wd=0.0005_mom=0.9_save_epoch=3_ngpu=2
 
 
 
@@ -355,6 +359,8 @@ if __name__ == '__main__':
     parser.add_argument('--num_w_per_pca', default=14, type=int, help='number of weight per PCA plot')  # for use with nw_subplane
     parser.add_argument('--save_epoch', default=3, type=int, help='interval where the net is saved during training')
 
+    parser.add_argument('--only_find_boundaries', action='store_true', default=False, help='whether to not run usual crunch and just find the boundaries')
+
     # constraint parameters
     parser.add_argument('--constraint', default=None, help='constraint: max_norm | SRIP')
     parser.add_argument('--max_norm_val', default=3, type=float, help='max of weight norm to be used with max norm constraint')
@@ -371,39 +377,70 @@ if __name__ == '__main__':
     # pre-define range
     if args.ipca > 0:
         # cannot use 0 with y, or will assert false
-        """
-        xdomains = ['-10:1:41', 
-                     '-13:0.5:14',
-                     '-12:0.5:12',
-                     '-7:0.5:16',
-                     '1:0.3:17',
-                     '-3:0.2:6',
-                     '19:0.02:20']
-        """
-        xdomains = ['-5:20:25', 
-                    '-11:11:25',
-                    '-9.5:9:25',
-                    '-5.5:13:25',
-                    '-3.5:12:25',
-                    '-3:5.5:30',
-                    '16.8:18.3:40']
+        xdomains, ydomains = [], []
+        if args.model == 'resnet56':
+            if not args.constraint:
+                xdomains = ['-10:40:25', 
+                            '-13:14:25',
+                            '-12:12:25',
+                            '-7:16:25',
+                            '1:17:25',
+                            '-3:6:25',
+                            '19:21:25']
+                ydomains = ['-17:14:25', 
+                            '-5:14:25',           # ends at 13.8
+                            '-6:13:25',
+                            '-5:16:25',
+                            '-6:2:25',
+                            '-1:6:25',            # no benefit (no in-between values)
+                            '-0.3:0.12:25']
+            elif args.constraint == 'max_norm' and args.max_norm_val == 4:
+                xdomains = ['-5:20:25', 
+                            '-11:11:25',
+                            '-9.5:9:25',
+                            '-5.5:13:25',
+                            '-3.5:12:25',
+                            '-3:5.5:30',
+                            '16.8:18.3:40']
+                ydomains = ['-17:10:25', 
+                            '-4:11:25',         
+                            '-4.5:10:25',
+                            '-4:12.5:25',
+                            '-3:4:25',
+                            '-1:6:30',          
+                            '-0.8:0.3:40']
+            elif args.constraint == 'SRIP' and args.reg_rate == 0.01:
+                xdomains = ['-10:40:25', 
+                            '-13:14:25',
+                            '-12:11:25',
+                            '-7:16:25',
+                            '1:17:25',
+                            '-3:6:25',
+                            '19:21:40']
+                ydomains = ['-17:12:25', 
+                            '-5:14:25',      
+                            '-6:13:25',
+                            '-5:16:25',
+                            '-6:2:25',
+                            '-1:6:25',    
+                            '0:0.8:40']
+        elif args.model == 'resnet56_noshort':
+            xdomains = ['-11:41:25', 
+                        '-13.5:12:25',
+                        '-1:0.001:25',		
+                        '0:99:25',
+                        '2:25:25',
+                        '-1:5:30',
+                        '8.9:17:40']
+            ydomains = ['-9:19:25', 
+                        '-12.5:2:25',     
+                        '-9.5:9:25',
+                        '-17:0:25',
+                        '1.5:8.51:25',
+                        '3:6:30',
+                        '-3:0.001:40']	
+            
         assert len(xdomains) >= args.ipca, 'number of x domains must be same or greater than ipca'
-        """
-        ydomains = ['-17:0.5:14', 
-                     '-5:0.4:14',           # ends at 13.8
-                     '-6:0.4:13',
-                     '-5:0.5:16',
-                     '-6:0.2:2',
-                     '-1:0.2:6',            
-                     '-0.3:0.01:0.12']
-        """
-        ydomains = ['-17:10:25', 
-                    '-4:11:25',         
-                    '-4.5:10:25',
-                    '-4:12.5:25',
-                    '-3:4:25',
-                    '-1:6:30',          
-                    '-0.8:0.3:40']
         assert len(ydomains) >= args.ipca, 'number of y domains must be same or greater than ipca'
         
         prefix = args.dir_file
@@ -417,7 +454,15 @@ if __name__ == '__main__':
                 assert os.path.exists(ptj_file), "projected file %s does not exist" % ptj_file
                 args.b_list = subplanes.boundary_list(ptj_file, args.nw_subplane, args.num_w_per_pca)
                 assert args.b_list is not None, "error processing boundary list"
-            main(args)
+
+                if args.only_find_boundaries:
+                    surf_file = name_surface_file(args, args.dir_file)
+                    bound_file = boundaries_dict(args, args.b_list, surf_file)
+                    d = net_plotter.load_directions(dir_file)
+                    compare_subplanes(args, bound_file, d)
+
+            if not args.only_find_boundaries:
+                main(args)
             print("Finished iter: " + str(i))
     else:
         main(args)

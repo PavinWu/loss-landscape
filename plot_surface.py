@@ -298,6 +298,7 @@ if __name__ == '__main__':
     # mpirun -n 1 python plot_surface.py --mpi --cuda --model resnet56 --ipca 7 --xignore biasbn --yignore biasbn --model_file cifar10/trained_nets/resnet56_sgd_lr=0.1_bs=128_wd=0.0005_mom=0.9_save_epoch=3/model_300.t7  --dir_file cifar10/trained_nets/resnet56_sgd_lr=0.1_bs=128_wd=0.0005_mom=0.9_save_epoch=3/PCA_weights_save_epoch=3/directions
     # mpirun -n 1 python plot_surface.py --mpi --cuda --model resnet56 --ipca 7 --model_file cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3_constraint\=max_norm_max_norm_val\=4.0/model_300.t7 --dir_file cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3_constraint\=max_norm_max_norm_val\=4.0/PCA_weights_save_epoch=3/directions --ptj_prefix cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3_constraint\=max_norm_max_norm_val\=4.0/PCA_weights_save_epoch=3/directions_iter_ --ptj_midfix .h5_iter_ --ptj_suffix _proj_cos.h5 --subplanes --nw_subplane 3 --constraint max_norm --max_norm_val 4 --save_epoch 3 --model_folder cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3_constraint\=max_norm_max_norm_val\=4.0/
     # mpirun -n 1 python plot_surface.py --mpi --cuda --model resnet56_noshort --ipca 7 --model_file cifar10/trained_nets/resnet56_noshort_sgd_lr=0.1_bs=128_wd=0.0005_mom=0.9_save_epoch=3_ngpu=2/model_300.t7 --dir_file cifar10/trained_nets/resnet56_noshort_sgd_lr=0.1_bs=128_wd=0.0005_mom=0.9_save_epoch=3_ngpu=2/PCA_weights_save_epoch=3/directions --ptj_prefix cifar10/trained_nets/resnet56_noshort_sgd_lr=0.1_bs=128_wd=0.0005_mom=0.9_save_epoch=3_ngpu=2/PCA_weights_save_epoch=3/directions_iter_ --ptj_midfix .h5_iter_ --ptj_suffix _proj_cos.h5 --subplanes --nw_subplane 2 --save_epoch 3 --model_folder cifar10/trained_nets/resnet56_noshort_sgd_lr=0.1_bs=128_wd=0.0005_mom=0.9_save_epoch=3_ngpu=2
+    # mpirun -n 1 python plot_surface.py --mpi --cuda --model resnet56 --ipca 7 --model_file cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3/model_300.t7 --dir_file cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3/PCA_weights_save_epoch\=3/directions --ptj_prefix cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3/PCA_weights_save_epoch\=3/directions_iter_ --ptj_midfix .h5_iter_ --ptj_suffix _proj_cos.h5 --subplanes --nw_subplane 2 --save_epoch 3 --model_folder cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3/
 
 
 
@@ -364,6 +365,7 @@ if __name__ == '__main__':
     # constraint parameters
     parser.add_argument('--constraint', default=None, help='constraint: max_norm | SRIP')
     parser.add_argument('--max_norm_val', default=3, type=float, help='max of weight norm to be used with max norm constraint')
+    parser.add_argument('--bc', action='store_true', default=False, help='Whether to do only weights before constraint applied (use this arg), or only after')
     parser.add_argument('--reg_rate', default=0.01, type=float, help='regularizer constant to be used with SRIP regularizer')
     parser.add_argument('--modify_plane', default=False, help='Modify the weights to follow constraints')
 
@@ -395,20 +397,36 @@ if __name__ == '__main__':
                             '-1:6:25',            # no benefit (no in-between values)
                             '-0.3:0.12:25']
             elif args.constraint == 'max_norm' and args.max_norm_val == 4:
-                xdomains = ['-5:20:25', 
-                            '-11:11:25',
-                            '-9.5:9:25',
-                            '-5.5:13:25',
-                            '-3.5:12:25',
-                            '-3:5.5:30',
-                            '16.8:18.3:40']
-                ydomains = ['-17:10:25', 
-                            '-4:11:25',         
-                            '-4.5:10:25',
-                            '-4:12.5:25',
-                            '-3:4:25',
-                            '-1:6:30',          
-                            '-0.8:0.3:40']
+                if args.bc:
+                    xdomains = ['-16.5:15:25', 
+                                '-10:10:25',
+                                '-9:9:25',
+                                '-5:13:25',
+                                '-3.5:10.5:25',
+                                '-2:6:30',
+                                '16.5:18.5:40']
+                    ydomains = ['-15.5:8:25', 
+                                '-4:11:25',         
+                                '-4.5:10:25',
+                                '-4.1:13:25',
+                                '-3.2:4.1:25',
+                                '-0.5:5.5:30',          
+                                '-0.89:0.39:40']
+                else:
+                    xdomains = ['-16.5:15:25', 
+                                '-10:10:25',
+                                '-9:9:25',
+                                '-5:13:25',
+                                '-4:10.3:25',
+                                '-2:5.5:30',
+                                '16.5:18.5:40']
+                    ydomains = ['-15.5:8:25', 
+                                '-4:11:25',         
+                                '-4.5:9.5:25',
+                                '-4.5:13:25',
+                                '-3.2:4.1:25',
+                                '-0.5:5.5:30',          
+                                '-0.89:-0.39:40']
             elif args.constraint == 'SRIP' and args.reg_rate == 0.01:
                 xdomains = ['-10:40:25', 
                             '-13:14:25',
@@ -423,7 +441,7 @@ if __name__ == '__main__':
                             '-5:16:25',
                             '-6:2:25',
                             '-1:6:25',    
-                            '0:0.8:40']
+                            '0.0001:0.8:40']
         elif args.model == 'resnet56_noshort':
             xdomains = ['-11:41:25', 
                         '-13.5:12:25',
@@ -435,7 +453,7 @@ if __name__ == '__main__':
             ydomains = ['-9:19:25', 
                         '-12.5:2:25',     
                         '-9.5:9:25',
-                        '-17:0:25',
+                        '-17:0.001:25',
                         '1.5:8.51:25',
                         '3:6:30',
                         '-3:0.001:40']	

@@ -36,6 +36,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_local_epoch', default=5, type=int, 
         help='number of weight vectors to be used in local PCA direction, must be divisible by (max_epoch-start_epoch)/save_epoch')
     parser.add_argument('--add_bc_models', action='store_true', default=False, help='Add model before constraints into PCA calculations')
+    parser.add_argument('--only_bc_models', action='store_true', default=False, help='Only use trajectory weights before constraints for PCA calculations')
 
     args = parser.parse_args()
 
@@ -55,8 +56,11 @@ if __name__ == '__main__':
         #--------------------------------------------------------------------------
         # load the final model of each local PCA
         #--------------------------------------------------------------------------
-        last_model_file = args.model_folder + '/' + args.prefix + str(args.start_epoch+offset_end) + args.suffix # NOTE 
-        net = model_loader.load(args.dataset, args.model, last_model_file)
+        if args.only_bc_models:
+            last_model_file = args.model_folder + '/' + args.prefix + 'bc_' + str(args.start_epoch+offset_end) + args.suffix # actually not used 
+        else:
+            last_model_file = args.model_folder + '/' + args.prefix + str(args.start_epoch+offset_end) + args.suffix # actually not used 
+        net = model_loader.load(args.dataset, args.model, last_model_file)      # actually not used
         w = net_plotter.get_weights(net)
         s = net.state_dict()
 
@@ -66,16 +70,22 @@ if __name__ == '__main__':
         current_model_files = []
         for epoch in range(args.start_epoch+offset_start, args.start_epoch+offset_end+1, args.save_epoch): # +1 to get to last one
             print(epoch)
-            model_file = args.model_folder + '/' + args.prefix + str(epoch) + args.suffix
-            assert os.path.exists(model_file), 'model %s does not exist' % model_file
-            current_model_files.append(model_file)
-            model_files.append(model_file)
-            
-            if args.add_bc_models:
+            if args.only_bc_models:
                 model_file = args.model_folder + '/' + args.prefix + 'bc_' + str(epoch) + args.suffix
                 assert os.path.exists(model_file), 'model %s does not exist' % model_file
                 current_model_files.append(model_file)
                 model_files.append(model_file)
+            else:                
+                model_file = args.model_folder + '/' + args.prefix + str(epoch) + args.suffix
+                assert os.path.exists(model_file), 'model %s does not exist' % model_file
+                current_model_files.append(model_file)
+                model_files.append(model_file)
+                
+                if args.add_bc_models:
+                    model_file = args.model_folder + '/' + args.prefix + 'bc_' + str(epoch) + args.suffix
+                    assert os.path.exists(model_file), 'model %s does not exist' % model_file
+                    current_model_files.append(model_file)
+                    model_files.append(model_file)
 
         #--------------------------------------------------------------------------
         # load or create projection directions

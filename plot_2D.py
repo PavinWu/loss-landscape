@@ -101,6 +101,56 @@ def plot_trajectory(proj_file, dir_file, show=False):
     fig.savefig(proj_file + '.pdf', dpi=300, bbox_inches='tight', format='pdf')
     if show: plt.show()
 
+def plot_3d_contour_trajectory(surf_file, dir_file, proj_file, surf_name='train_loss',
+                            vmin=0.1, vmax=10, vlevel=0.5, show=False):
+    
+    assert exists(surf_file) and exists(proj_file) and exists(dir_file)
+
+    # plot contours
+    f = h5py.File(surf_file,'r')
+    x = np.array(f['xcoordinates'][:])
+    y = np.array(f['ycoordinates'][:])
+    X, Y = np.meshgrid(x, y)
+    if surf_name in f.keys():
+        Z = np.log(np.array(f[surf_name][:]))
+    elif surf_name == 'train_err' or surf_name == 'test_err' :
+        Z = 100 - np.array(f[surf_name][:])
+
+    fig = plt.figure()
+    ax = Axes3D(fig)
+    surf = ax.plot_surface(X, Y, Z, cmap=cm.coolwarm, linewidth=0, antialiased=False)
+    fig.colorbar(surf, shrink=0.5, aspect=5)
+    fig.savefig(surf_file + '_' + surf_name + '_3dsurface.pdf', dpi=300,
+                bbox_inches='tight', format='pdf')
+
+    f.close()
+
+    # plot trajectories
+    # TODO rainbow colour as epoch increases
+    # TODO marker which weight used as boundary
+    # TODO mark constraints
+    # NaN
+    pf = h5py.File(proj_file, 'r')
+    ax.plot(pf['proj_xcoord'], pf['proj_ycoord'], np.log(pf['loss']), marker='.')   # TODO check for loss attribute
+
+    # plot red points when learning rate decays
+    # TODO e won't corespond to index
+    # for e in [150, 225, 275]:
+    #     plt.plot([pf['proj_xcoord'][e]], [pf['proj_ycoord'][e]], marker='.', color='r')
+
+    # add PCA notes
+    df = h5py.File(dir_file,'r')
+    ratio_x = df['explained_variance_ratio_'][0]
+    ratio_y = df['explained_variance_ratio_'][1]
+    plt.xlabel('1st PC: %.2f %%' % (ratio_x*100), fontsize='xx-large')
+    plt.ylabel('2nd PC: %.2f %%' % (ratio_y*100), fontsize='xx-large')
+    df.close()
+    plt.clabel(CS1, inline=1, fontsize=6)
+    plt.clabel(CS2, inline=1, fontsize=6)
+    fig.savefig(proj_file + '_' + surf_name + '_2dcontour_proj.pdf', dpi=300,
+                bbox_inches='tight', format='pdf')
+    pf.close()
+    if show: plt.show()
 
 def plot_contour_trajectory(surf_file, dir_file, proj_file, surf_name='loss_vals',
                             vmin=0.1, vmax=10, vlevel=0.5, show=False):
@@ -117,19 +167,14 @@ def plot_contour_trajectory(surf_file, dir_file, proj_file, surf_name='loss_vals
         Z = np.array(f[surf_name][:])
 
     fig = plt.figure()
-    CS1 = plt.contour(X, Y, Z, levels=np.arange(vmin, vmax, vlevel))
-    CS2 = plt.contour(X, Y, Z, levels=np.logspace(1, 8, num=8))
+    CS1 = plt.contour(X, Y, Z)#, levels=np.arange(vmin, vmax, vlevel))
+    CS2 = plt.contour(X, Y, Z)#, np.logspace(1, 8, num=8))
 
     # plot trajectories
-    # TODO rainbow colour as epoch increases
-    # TODO marker which weight used as boundary
-    # TODO NaN
-    # TODO mark constraints
     pf = h5py.File(proj_file, 'r')
     plt.plot(pf['proj_xcoord'], pf['proj_ycoord'], marker='.')
 
     # plot red points when learning rate decays
-    # TODO e won't corespond to index
     # for e in [150, 225, 275]:
     #     plt.plot([pf['proj_xcoord'][e]], [pf['proj_ycoord'][e]], marker='.', color='r')
 
@@ -188,6 +233,11 @@ def plot_2d_eig_ratio(surf_file, val_1='min_eig', val_2='max_eig', show=False):
 
 
 if __name__ == '__main__':
+    # python plot_2D.py --surf_file cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3_constraint\=max_norm_max_norm_val\=4.0/model/PCA_weights_save_epoch\=3/directions_iter_0.h5_[-16.5,15.0,25]x[-15.5,8.0,25]_Index=0_subplanes_nw=2.h5 --proj_file cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3_constraint\=max_norm_max_norm_val\=4.0/model/PCA_weights_save_epoch\=3/directions_iter_0.h5_iter_0_proj_cos.h5 --dir_file cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3_constraint\=max_norm_max_norm_val\=4.0/model/PCA_weights_save_epoch\=3/directions_iter_0.h5
+
+    #python plot_2D.py --surf_file cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3_constraint\=max_norm_max_norm_val\=4.0/model/PCA_weights_save_epoch\=3/directions_iter_0.h5_[16.5,18.5,40]x[-0.89,-0.39,40]_Index\=0_subplanes_nw\=2.h5 --proj_file cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3_constraint\=max_norm_max_norm_val\=4.0/model/PCA_weights_save_epoch\=3/directions_iter_6.h5_iter_6_proj_cos.h5 --dir_file cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3_constraint\=max_norm_max_norm_val\=4.0/model/PCA_weights_save_epoch\=3/directions_iter_6.h5
+
+
     parser = argparse.ArgumentParser(description='Plot 2D loss surface')
     parser.add_argument('--surf_file', '-f', default='', help='The h5 file that contains surface values')
     parser.add_argument('--dir_file', default='', help='The h5 file that contains directions')
@@ -198,9 +248,15 @@ if __name__ == '__main__':
     parser.add_argument('--vlevel', default=0.5, type=float, help='plot contours every vlevel')
     parser.add_argument('--zlim', default=10, type=float, help='Maximum loss value to show')
     parser.add_argument('--show', action='store_true', default=False, help='show plots')
+    parser.add_argument('--3d_pca', action='store_true', default=False, help='Use 3D plot for the loss surface and trajectory')
 
     args = parser.parse_args()
 
+    args.vmin = 2.3
+    args.vmax = 3
+    args.vlevel = 0.001
+    args.zlim = 100
+    args.show = True
     if exists(args.surf_file) and exists(args.proj_file) and exists(args.dir_file):
         plot_contour_trajectory(args.surf_file, args.dir_file, args.proj_file,
                                 args.surf_name, args.vmin, args.vmax, args.vlevel, args.show)

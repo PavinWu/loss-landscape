@@ -18,7 +18,9 @@ def get_weights(net):
     """ Extract parameters from net, and return a list of tensors"""
     return [p.data for p in net.parameters()]
 
-def get_model_name(model_folder, iw):
+def get_model_name(model_folder, iw, only_bc_models):
+    if only_bc_models:
+        return model_folder + '/' + 'model_bc_' + str(iw) + '.t7'
     return model_folder + '/' + 'model_' + str(iw) + '.t7'
 
 def set_weights(net, weights, directions=None, step=None, ipca=0, boundary=None):    

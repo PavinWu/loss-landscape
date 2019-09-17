@@ -129,8 +129,8 @@ def crunch(surf_file, net, w, s, d, dataloader, loss_key, acc_key, comm, rank, a
                 xl, xr, yl, yr, iwl, iwr = subplanes.locate_boundary(coord[0], args.b_list, args.save_epoch)
                 print('x:', xl, xr, ', y:', yl, yr, ', iw:', iwl, iwr)
                 # Load nets with weights of the boundaries
-                netl = model_loader.load(args.dataset, args.model, net_plotter.get_model_name(args.model_folder, iwl))
-                netr = model_loader.load(args.dataset, args.model, net_plotter.get_model_name(args.model_folder, iwr))
+                netl = model_loader.load(args.dataset, args.model, net_plotter.get_model_name(args.model_folder, iwl, args.only_bc_models))
+                netr = model_loader.load(args.dataset, args.model, net_plotter.get_model_name(args.model_folder, iwr, args.only_bc_models))
                 wl, wr = net_plotter.get_weights(netl), net_plotter.get_weights(netr)
                 boundary = {'wl': wl, 'wr': wr, 
                             'xl': xl, 'xr': xr,
@@ -197,7 +197,7 @@ def crunch(surf_file, net, w, s, d, dataloader, loss_key, acc_key, comm, rank, a
 ###############################################################
 #                          MAIN
 ###############################################################
-def main(args):
+def main(args, icpca=0):
 
     torch.manual_seed(123)
     #--------------------------------------------------------------------------
@@ -276,11 +276,35 @@ def main(args):
                                 args.data_split, args.split_idx,
                                 args.trainloader, args.testloader)
     
-    #--------------------------------------------------------------------------
-    # Start the computation
-    #--------------------------------------------------------------------------
-    crunch(surf_file, net, w, s, d, trainloader, 'train_loss', 'train_acc', comm, rank, args)
-    # crunch(surf_file, net, w, s, d, testloader, 'test_loss', 'test_acc', comm, rank, args)
+    if not args.only_find_loss_traj:
+        #--------------------------------------------------------------------------
+        # Start the computation
+        #--------------------------------------------------------------------------
+        crunch(surf_file, net, w, s, d, trainloader, 'train_loss', 'train_acc', comm, rank, args)
+        # crunch(surf_file, net, w, s, d, testloader, 'test_loss', 'test_acc', comm, rank, args)
+    else:
+        ptj_file = args.ptj_prefix + str(icpca) + args.ptj_midfix + str(icpca) + args.ptj_suffix
+        assert os.path.exists(ptj_file), "projected file %s does not exist" % ptj_file
+        
+        criterion = nn.CrossEntropyLoss()
+        if args.loss_name == 'mse':
+            criterion = nn.MSELoss()
+
+        f = h5py.File(ptj_file, 'a')
+        proj_xcoord = f['proj_xcoord'][:]
+        traj_losses, traj_acc = [], []
+        for i in range(len(proj_xcoord)):
+            if not args.only_bc_models:
+                current_model_file = args.model_folder + '/model_' + str(i*args.save_epoch) + '.h5'
+            else:
+                current_model_file = args.model_folder + '/model_bc_' + str(i*args.save_epoch) + '.h5'
+            current_net = model_loader.load(args.dataset, args.model, current_model_file)
+            loss, acc = evaluation.eval_loss(current_net, criterion, dataloader, args.cuda, args.constraint, args.reg_rate)
+            traj_loss.append(loss)
+            traj_acc.append(acc)
+        f['loss'] = traj_loss
+        f['accuracy'] = traj_acc
+        f.close()
 
     #--------------------------------------------------------------------------
     # Plot figures (may be just save and not show (use param))
@@ -297,8 +321,17 @@ if __name__ == '__main__':
     # use 
     # mpirun -n 1 python plot_surface.py --mpi --cuda --model resnet56 --ipca 7 --xignore biasbn --yignore biasbn --model_file cifar10/trained_nets/resnet56_sgd_lr=0.1_bs=128_wd=0.0005_mom=0.9_save_epoch=3/model_300.t7  --dir_file cifar10/trained_nets/resnet56_sgd_lr=0.1_bs=128_wd=0.0005_mom=0.9_save_epoch=3/PCA_weights_save_epoch=3/directions
     # mpirun -n 1 python plot_surface.py --mpi --cuda --model resnet56 --ipca 7 --model_file cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3_constraint\=max_norm_max_norm_val\=4.0/model_300.t7 --dir_file cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3_constraint\=max_norm_max_norm_val\=4.0/PCA_weights_save_epoch=3/directions --ptj_prefix cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3_constraint\=max_norm_max_norm_val\=4.0/PCA_weights_save_epoch=3/directions_iter_ --ptj_midfix .h5_iter_ --ptj_suffix _proj_cos.h5 --subplanes --nw_subplane 3 --constraint max_norm --max_norm_val 4 --save_epoch 3 --model_folder cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3_constraint\=max_norm_max_norm_val\=4.0/
+    
     # mpirun -n 1 python plot_surface.py --mpi --cuda --model resnet56_noshort --ipca 7 --model_file cifar10/trained_nets/resnet56_noshort_sgd_lr=0.1_bs=128_wd=0.0005_mom=0.9_save_epoch=3_ngpu=2/model_300.t7 --dir_file cifar10/trained_nets/resnet56_noshort_sgd_lr=0.1_bs=128_wd=0.0005_mom=0.9_save_epoch=3_ngpu=2/PCA_weights_save_epoch=3/directions --ptj_prefix cifar10/trained_nets/resnet56_noshort_sgd_lr=0.1_bs=128_wd=0.0005_mom=0.9_save_epoch=3_ngpu=2/PCA_weights_save_epoch=3/directions_iter_ --ptj_midfix .h5_iter_ --ptj_suffix _proj_cos.h5 --subplanes --nw_subplane 2 --save_epoch 3 --model_folder cifar10/trained_nets/resnet56_noshort_sgd_lr=0.1_bs=128_wd=0.0005_mom=0.9_save_epoch=3_ngpu=2
+    
     # mpirun -n 1 python plot_surface.py --mpi --cuda --model resnet56 --ipca 7 --model_file cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3/model_300.t7 --dir_file cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3/PCA_weights_save_epoch\=3/directions --ptj_prefix cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3/PCA_weights_save_epoch\=3/directions_iter_ --ptj_midfix .h5_iter_ --ptj_suffix _proj_cos.h5 --subplanes --nw_subplane 2 --save_epoch 3 --model_folder cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3/
+    
+    # mpirun -n 1 python plot_surface.py --mpi --cuda --model resnet56 --ipca 7 --model_file cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd=\0.0005_mom=\0.9_save_epoch\=3_constraint\=max_norm_max_norm_val\=4.0/model/model_300.t7 --dir_file cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3_constraint\=max_norm_max_norm_val\=4.0/model/PCA_weights_save_epoch=3/directions --ptj_prefix cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3_constraint\=max_norm_max_norm_val\=4.0/model/PCA_weights_save_epoch=3/directions_iter_ --ptj_midfix .h5_iter_ --ptj_suffix _proj_cos.h5 --subplanes --nw_subplane 2 --constraint max_norm --max_norm_val 4 --save_epoch 3 --model_folder cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3_constraint\=max_norm_max_norm_val\=4.0/model/
+
+    #mpirun -n 1 python plot_surface.py --mpi --cuda --model resnet56 --ipca 7 --model_file cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd=\0.0005_mom=\0.9_save_epoch\=3_constraint\=max_norm_max_norm_val\=4.0/model_bc/model_bc_300.t7 --dir_file cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3_constraint\=max_norm_max_norm_val\=4.0/model_bc/PCA_weights_save_epoch=3/directions --ptj_prefix cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3_constraint\=max_norm_max_norm_val\=4.0/model_bc/PCA_weights_save_epoch=3/directions_iter_ --ptj_midfix .h5_iter_ --ptj_suffix _proj_cos.h5 --subplanes --nw_subplane 2 --constraint max_norm --max_norm_val 4 --save_epoch 3 --model_folder cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3_constraint\=max_norm_max_norm_val\=4.0/model_bc/ --only_bc_models
+
+    # mpirun -n 1 python plot_surface.py --mpi --cuda --model resnet56 --ipca 7 --model_file cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd=\0.0005_mom=\0.9_save_epoch\=3_constraint\=SRIP_reg_rate\=0.01/model_300.t7 --dir_file cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3_constraint\=SRIP_reg_rate\=0.01/PCA_weights_save_epoch=3/directions --ptj_prefix cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3_constraint\=SRIP_reg_rate\=0.01/PCA_weights_save_epoch=3/directions_iter_ --ptj_midfix .h5_iter_ --ptj_suffix _proj_cos.h5 --subplanes --nw_subplane 2 --constraint SRIP --save_epoch 3 --model_folder cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3_constraint\=SRIP_reg_rate\=0.01/
+
 
 
 
@@ -359,8 +392,9 @@ if __name__ == '__main__':
     parser.add_argument('--ptj_suffix', default='', help='suffix for projected trajectory files')
     parser.add_argument('--num_w_per_pca', default=14, type=int, help='number of weight per PCA plot')  # for use with nw_subplane
     parser.add_argument('--save_epoch', default=3, type=int, help='interval where the net is saved during training')
-
+    parser.add_argument('--only_bc_models', action='store_true', default=False, help='Only use trajectory weights before constraints for PCA calculations')
     parser.add_argument('--only_find_boundaries', action='store_true', default=False, help='whether to not run usual crunch and just find the boundaries')
+    parser.add_argument('--only_find_loss_traj', action='store_true', default=False, help='only find loss value of the weights in the trajectory')
 
     # constraint parameters
     parser.add_argument('--constraint', default=None, help='constraint: max_norm | SRIP')
@@ -427,6 +461,24 @@ if __name__ == '__main__':
                                 '-3.2:4.1:25',
                                 '-0.5:5.5:30',          
                                 '-0.89:-0.39:40']
+                    """ Used these for stagnate 
+                    xdomains = ['-17:14.5:25', 
+                                '-10:10:25',
+                                '-9:9:25',
+                                '-5:13:25',
+                                '-4:10.3:25',
+                                '-2:5.5:30',
+                                '16.3:18.5:40']
+                    ydomains = ['-16:8.5:25', 
+                                '-4:11:25',         
+                                '-4.5:9.5:25',
+                                '-4.5:13:25',
+                                '-3.2:4:25',
+                                '-0.5:5.5:30',          
+                                '-1.3:-0.75:40']
+                    
+                    """
+
             elif args.constraint == 'SRIP' and args.reg_rate == 0.01:
                 xdomains = ['-16.5:35:25', 
                             '-13:12.5:25',  #'-13:14:25',
@@ -487,11 +539,12 @@ if __name__ == '__main__':
                     surf_file = name_surface_file(args, args.dir_file)
                     bound_file = subplanes.boundaries_dict(args, args.b_list, surf_file)
                     d = net_plotter.load_directions(args.dir_file)
-                    subplanes.similarity(args, bound_file, d)
+                    subplanes.similarity(args, bound_file, d)                   
 
             if not args.only_find_boundaries:
-                main(args)
+                main(args, i)
             print("Finished iter: " + str(i))
     else:
         main(args)
            
+          

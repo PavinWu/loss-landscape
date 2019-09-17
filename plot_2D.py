@@ -121,10 +121,15 @@ def plot_contour_trajectory(surf_file, dir_file, proj_file, surf_name='loss_vals
     CS2 = plt.contour(X, Y, Z, levels=np.logspace(1, 8, num=8))
 
     # plot trajectories
+    # TODO rainbow colour as epoch increases
+    # TODO marker which weight used as boundary
+    # TODO NaN
+    # TODO mark constraints
     pf = h5py.File(proj_file, 'r')
     plt.plot(pf['proj_xcoord'], pf['proj_ycoord'], marker='.')
 
     # plot red points when learning rate decays
+    # TODO e won't corespond to index
     # for e in [150, 225, 275]:
     #     plt.plot([pf['proj_xcoord'][e]], [pf['proj_ycoord'][e]], marker='.', color='r')
 

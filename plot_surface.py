@@ -303,8 +303,14 @@ def main(args, icpca=0, traj_loss=[], traj_acc=[]):
             traj_loss.append(loss)
             traj_acc.append(acc)
             print("icpca: " + str(icpca) + " " + str(current_model_file) + ", loss=" + str(loss) + ", acc=" + str(acc))
-        f['loss'] = traj_loss
-        f['accuracy'] = traj_acc
+        if 'loss' not in f.keys():
+            f['loss'] = traj_loss
+        else:
+            f['loss'][...] = traj_loss
+        if 'acc' not in f.keys():
+            f['accuracy'] = traj_acc
+        else:
+            f['accuracy'][...] = traj_acc
         f.close()
         return traj_loss, traj_acc
 

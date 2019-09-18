@@ -274,7 +274,7 @@ if __name__ == '__main__':
     parser.add_argument('--vlevel', default=0.5, type=float, help='plot contours every vlevel')
     parser.add_argument('--zlim', default=10, type=float, help='Maximum loss value to show')
     parser.add_argument('--show', action='store_true', default=False, help='show plots')
-    parser.add_argument('--3d_pca', action='store_true', default=False, help='Use 3D plot for the loss surface and trajectory')
+    parser.add_argument('--pca_3d', action='store_true', default=False, help='Use 3D plot for the loss surface and trajectory')
     parser.add_argument('--show_constaints', action='store_true', default=False, help='Mark points not with in constraints')
     
     parser.add_argument('--show_boundaries', action='store_true', default=False, help='Mark trajectory weights used as boundaries')
@@ -294,6 +294,6 @@ if __name__ == '__main__':
         plot_trajectory(args.proj_file, args.dir_file, args.show)
     elif exists(args.surf_file):
         plot_2d_contour(args.surf_file, args.surf_name, args.vmin, args.vmax, args.vlevel, args.show)
-    elif args.3d_pca:
+    elif args.pca_3d:
         plot_3d_contour_trajectory(args, args.surf_file, args.dir_file, args.proj_file, args.surf_name,
-                            args.vmin, args.vmax, args.vlevel, args.show):
+                            args.vmin, args.vmax, args.vlevel, args.show)

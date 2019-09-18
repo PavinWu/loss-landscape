@@ -197,7 +197,7 @@ def crunch(surf_file, net, w, s, d, dataloader, loss_key, acc_key, comm, rank, a
 ###############################################################
 #                          MAIN
 ###############################################################
-def main(args, icpca=0):
+def main(args, icpca=0, traj_loss=[], traj_acc=[]):
 
     torch.manual_seed(123)
     #--------------------------------------------------------------------------
@@ -292,19 +292,21 @@ def main(args, icpca=0):
 
         f = h5py.File(ptj_file, 'a')
         proj_xcoord = f['proj_xcoord'][:]
-        traj_losses, traj_acc = [], []
-        for i in range(len(proj_xcoord)):
+        for i in range(len(traj_loss), len(proj_xcoord)):
+            # currently in-efficient since recalculate loss for calculated model for next icpca
             if not args.only_bc_models:
-                current_model_file = args.model_folder + '/model_' + str(i*args.save_epoch) + '.h5'
+                current_model_file = args.model_folder + '/model_' + str(i*args.save_epoch) + '.t7'
             else:
-                current_model_file = args.model_folder + '/model_bc_' + str(i*args.save_epoch) + '.h5'
+                current_model_file = args.model_folder + '/model_bc_' + str(i*args.save_epoch) + '.t7'
             current_net = model_loader.load(args.dataset, args.model, current_model_file)
-            loss, acc = evaluation.eval_loss(current_net, criterion, dataloader, args.cuda, args.constraint, args.reg_rate)
+            loss, acc = evaluation.eval_loss(current_net, criterion, trainloader, args.cuda, args.constraint, args.reg_rate)
             traj_loss.append(loss)
             traj_acc.append(acc)
+            print("icpca: " + str(icpca) + " " + str(current_model_file) + ", loss=" + str(loss) + ", acc=" + str(acc))
         f['loss'] = traj_loss
         f['accuracy'] = traj_acc
         f.close()
+        return traj_loss, traj_acc
 
     #--------------------------------------------------------------------------
     # Plot figures (may be just save and not show (use param))
@@ -331,7 +333,6 @@ if __name__ == '__main__':
     #mpirun -n 1 python plot_surface.py --mpi --cuda --model resnet56 --ipca 7 --model_file cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd=\0.0005_mom=\0.9_save_epoch\=3_constraint\=max_norm_max_norm_val\=4.0/model_bc/model_bc_300.t7 --dir_file cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3_constraint\=max_norm_max_norm_val\=4.0/model_bc/PCA_weights_save_epoch=3/directions --ptj_prefix cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3_constraint\=max_norm_max_norm_val\=4.0/model_bc/PCA_weights_save_epoch=3/directions_iter_ --ptj_midfix .h5_iter_ --ptj_suffix _proj_cos.h5 --subplanes --nw_subplane 2 --constraint max_norm --max_norm_val 4 --save_epoch 3 --model_folder cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3_constraint\=max_norm_max_norm_val\=4.0/model_bc/ --only_bc_models
 
     # mpirun -n 1 python plot_surface.py --mpi --cuda --model resnet56 --ipca 7 --model_file cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd=\0.0005_mom=\0.9_save_epoch\=3_constraint\=SRIP_reg_rate\=0.01/model_300.t7 --dir_file cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3_constraint\=SRIP_reg_rate\=0.01/PCA_weights_save_epoch=3/directions --ptj_prefix cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3_constraint\=SRIP_reg_rate\=0.01/PCA_weights_save_epoch=3/directions_iter_ --ptj_midfix .h5_iter_ --ptj_suffix _proj_cos.h5 --subplanes --nw_subplane 2 --constraint SRIP --save_epoch 3 --model_folder cifar10/trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3_constraint\=SRIP_reg_rate\=0.01/
-
 
 
 
@@ -395,6 +396,7 @@ if __name__ == '__main__':
     parser.add_argument('--only_bc_models', action='store_true', default=False, help='Only use trajectory weights before constraints for PCA calculations')
     parser.add_argument('--only_find_boundaries', action='store_true', default=False, help='whether to not run usual crunch and just find the boundaries')
     parser.add_argument('--only_find_loss_traj', action='store_true', default=False, help='only find loss value of the weights in the trajectory')
+    parser.add_argument('--only_current_plane_weights', action='store_true', default=False, help='True if ptj_file only contains weights used to find current PCA plane')
 
     # constraint parameters
     parser.add_argument('--constraint', default=None, help='constraint: max_norm | SRIP')
@@ -515,6 +517,7 @@ if __name__ == '__main__':
         
         prefix = args.dir_file
         ptj_file = ''
+        traj_loss, traj_acc = [], []
         for i in range(args.icpca, args.ipca):
             args.x, args.y = xdomains[i], ydomains[i]
             args.dir_file = prefix + '_iter_' + str(i) + '.h5'
@@ -542,7 +545,12 @@ if __name__ == '__main__':
                     subplanes.similarity(args, bound_file, d)                   
 
             if not args.only_find_boundaries:
-                main(args, i)
+                if args.only_find_loss_traj:
+                    if args.only_current_plane_weights:
+                        traj_loss, traj_acc = [], []
+                    traj_loss, traj_acc = main(args, i, traj_loss, traj_acc)
+                else:
+                    main(args)
             print("Finished iter: " + str(i))
     else:
         main(args)

@@ -232,7 +232,6 @@ def similarity(args, bound_file, directions):
 
 def boundaries_dict(args, b_list, surf_file):
     """ Get boundaries dict of all x-value of the plot """   
-    #not tested 
     xcoordinates = np.linspace(args.xmin, args.xmax, num=args.xnum)
     
     bound_dict_keys = ['x', 'xl', 'xr', 'yl', 'yr', 'iwl', 'iwr']
@@ -249,6 +248,7 @@ def boundaries_dict(args, b_list, surf_file):
     f = h5py.File(bound_file, 'w')
     for k in bound_dict_keys:
         f[k] = bound_dict[k]
+    f['b_list'] = b_list
     f.close()
 
     return bound_file

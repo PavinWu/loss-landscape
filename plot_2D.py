@@ -10,6 +10,7 @@ import argparse
 import numpy as np
 from os.path import exists
 import seaborn as sns
+import subplanes
 
 
 def plot_2d_contour(surf_file, surf_name='train_loss', vmin=0.1, vmax=10, vlevel=0.5, show=False):
@@ -101,8 +102,10 @@ def plot_trajectory(proj_file, dir_file, show=False):
     fig.savefig(proj_file + '.pdf', dpi=300, bbox_inches='tight', format='pdf')
     if show: plt.show()
 
-def plot_3d_contour_trajectory(surf_file, dir_file, proj_file, surf_name='train_loss',
+def plot_3d_contour_trajectory(args, surf_file, dir_file, proj_file, surf_name='train_loss',
                             vmin=0.1, vmax=10, vlevel=0.5, show=False):
+    # WARNING: not adapted to be used outside of this fyp. Further clean up is required.
+    # TODO script to automate plotting of a network (bash script)
     
     assert exists(surf_file) and exists(proj_file) and exists(dir_file)
 
@@ -112,7 +115,11 @@ def plot_3d_contour_trajectory(surf_file, dir_file, proj_file, surf_name='train_
     y = np.array(f['ycoordinates'][:])
     X, Y = np.meshgrid(x, y)
     if surf_name in f.keys():
-        Z = np.log(np.array(f[surf_name][:]))
+        Z = np.array(f[surf_name][:])
+        # xTODO change NaN to max
+        # helpful: np.nanmax, https://stackoverflow.com/questions/5124376/convert-nan-value-to-zero
+        Z[np.isnan(Z)] = np.nanmax(Z)
+        Z = np.log(Z)
     elif surf_name == 'train_err' or surf_name == 'test_err' :
         Z = 100 - np.array(f[surf_name][:])
 
@@ -123,20 +130,39 @@ def plot_3d_contour_trajectory(surf_file, dir_file, proj_file, surf_name='train_
     fig.savefig(surf_file + '_' + surf_name + '_3dsurface.pdf', dpi=300,
                 bbox_inches='tight', format='pdf')
 
+    # xTODO mark constraints
+    in_bound_list = []
+    if args.show_constraints:
+        in_bound = np.array(f['inbound'][:])
+        for j, row in enumerate(in_bound):
+            for i, wb in enumerate(row):
+                if wb == 0:
+                    in_bound_list.append([x[i], y[j], Z[j][i]])
+        in_bound_arr = np.transpose(np.array(n_bound_list))
+        ax.scatter(in_bound_arr[0], in_bound_arr[1], in_bound_arr[2], marker='x', color='r')
+
     f.close()
 
     # plot trajectories
-    # TODO rainbow colour as epoch increases
-    # TODO marker which weight used as boundary
-    # TODO mark constraints
-    # NaN
+    # xTODO rainbow colour as epoch increases
     pf = h5py.File(proj_file, 'r')
-    ax.plot(pf['proj_xcoord'], pf['proj_ycoord'], np.log(pf['loss']), marker='.')   # TODO check for loss attribute
+    colours = np.arange(len(pf['proj_xcoord'][:]))
+    pf_log_loss = np.log(pf['loss'][:])
+    ax.scatter(pf['proj_xcoord'][:], pf['proj_ycoord'][:], pf_log_loss, marker='o', c=colours, cmap='rainbow')   # TODO check for loss attribute
 
     # plot red points when learning rate decays
-    # TODO e won't corespond to index
-    # for e in [150, 225, 275]:
-    #     plt.plot([pf['proj_xcoord'][e]], [pf['proj_ycoord'][e]], marker='.', color='r')
+    # xTODO e won't corespond to index
+    for e in [150//3, 225//3, 276//3]:
+        plt.plot([pf['proj_xcoord'][e]], [pf['proj_ycoord'][e]], marker='v', color='r')
+
+    # xTODO marker which weight used as boundary (TODO may be some bugs)
+    if args.show_boundaries:
+        bf = h5py.File(args.bound_file, 'r')
+        b_list = bf['b_list'][:]
+        b_list = np.transpose(np.array(sorted(b_list)))    # sorted by index
+        b_list_loss = pf_log_loss[b_list[0]]
+        ax.scatter(b_list[1], b_list[2], b_list_loss, marker='|', color='k')
+        bf.close()
 
     # add PCA notes
     df = h5py.File(dir_file,'r')
@@ -249,7 +275,11 @@ if __name__ == '__main__':
     parser.add_argument('--zlim', default=10, type=float, help='Maximum loss value to show')
     parser.add_argument('--show', action='store_true', default=False, help='show plots')
     parser.add_argument('--3d_pca', action='store_true', default=False, help='Use 3D plot for the loss surface and trajectory')
-
+    parser.add_argument('--show_constaints', action='store_true', default=False, help='Mark points not with in constraints')
+    
+    parser.add_argument('--show_boundaries', action='store_true', default=False, help='Mark trajectory weights used as boundaries')
+    parser.add_argument('--bound_file', default='', help='File containing boundary dict')
+    
     args = parser.parse_args()
 
     args.vmin = 2.3
@@ -264,3 +294,6 @@ if __name__ == '__main__':
         plot_trajectory(args.proj_file, args.dir_file, args.show)
     elif exists(args.surf_file):
         plot_2d_contour(args.surf_file, args.surf_name, args.vmin, args.vmax, args.vlevel, args.show)
+    elif args.3d_pca:
+        plot_3d_contour_trajectory(args, args.surf_file, args.dir_file, args.proj_file, args.surf_name,
+                            args.vmin, args.vmax, args.vlevel, args.show):

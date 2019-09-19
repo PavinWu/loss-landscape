@@ -125,20 +125,21 @@ def plot_3d_contour_trajectory(args, surf_file, dir_file, proj_file, surf_name='
 
     fig = plt.figure()
     ax = Axes3D(fig)
-    surf = ax.plot_surface(X, Y, Z, cmap=cm.coolwarm, linewidth=0, antialiased=False)
+    surf = ax.plot_surface(X, Y, Z, cmap=cm.coolwarm, linewidth=0, antialiased=False)   # TODO colour issues
     fig.colorbar(surf, shrink=0.5, aspect=5)
     fig.savefig(surf_file + '_' + surf_name + '_3dsurface.pdf', dpi=300,
                 bbox_inches='tight', format='pdf')
 
     # xTODO mark constraints
     in_bound_list = []
-    if args.show_constraints:
+    if args.show_constraints:       
+        
         in_bound = np.array(f['inbound'][:])
         for j, row in enumerate(in_bound):
             for i, wb in enumerate(row):
                 if wb == 0:
                     in_bound_list.append([x[i], y[j], Z[j][i]])
-        in_bound_arr = np.transpose(np.array(n_bound_list))
+        in_bound_arr = np.transpose(np.array(in_bound_list))
         ax.scatter(in_bound_arr[0], in_bound_arr[1], in_bound_arr[2], marker='x', color='r')
 
     f.close()
@@ -149,20 +150,29 @@ def plot_3d_contour_trajectory(args, surf_file, dir_file, proj_file, surf_name='
     colours = np.arange(len(pf['proj_xcoord'][:]))
     pf_log_loss = np.log(pf['loss'][:])
     ax.scatter(pf['proj_xcoord'][:], pf['proj_ycoord'][:], pf_log_loss, marker='o', c=colours, cmap='rainbow')   # TODO check for loss attribute
+    
+    epoch_label_intv = 2
+    len_pf = len(pf['proj_xcoord'][:])
+    for iw in range(0, len_pf, epoch_label_intv):
+        ax.text(pf['proj_xcoord'][iw], pf['proj_ycoord'][iw], pf_log_loss[iw], '%s' % (str(iw*3)), size=8+(iw*3)//50, zorder=1, color='k') 
 
     # plot red points when learning rate decays
     # xTODO e won't corespond to index
     for e in [150//3, 225//3, 276//3]:
-        plt.plot([pf['proj_xcoord'][e]], [pf['proj_ycoord'][e]], marker='v', color='r')
+        if len_pf > e:
+            plt.plot([pf['proj_xcoord'][e]], [pf['proj_ycoord'][e]], marker='v', color='r')
 
     # xTODO marker which weight used as boundary (TODO may be some bugs)
-    if args.show_boundaries:
+    if args.show_boundaries:        # not used/tested
         bf = h5py.File(args.bound_file, 'r')
         b_list = bf['b_list'][:]
         b_list = np.transpose(np.array(sorted(b_list)))    # sorted by index
         b_list_loss = pf_log_loss[b_list[0]]
         ax.scatter(b_list[1], b_list[2], b_list_loss, marker='|', color='k')
         bf.close()
+    
+    ax.set_xlim3d(np.min(x), np.max(x))
+    ax.set_ylim3d(np.min(y), np.max(y))
 
     # add PCA notes
     df = h5py.File(dir_file,'r')
@@ -171,8 +181,8 @@ def plot_3d_contour_trajectory(args, surf_file, dir_file, proj_file, surf_name='
     plt.xlabel('1st PC: %.2f %%' % (ratio_x*100), fontsize='xx-large')
     plt.ylabel('2nd PC: %.2f %%' % (ratio_y*100), fontsize='xx-large')
     df.close()
-    plt.clabel(CS1, inline=1, fontsize=6)
-    plt.clabel(CS2, inline=1, fontsize=6)
+    #plt.clabel(CS1, inline=1, fontsize=6)
+    #plt.clabel(CS2, inline=1, fontsize=6)
     fig.savefig(proj_file + '_' + surf_name + '_2dcontour_proj.pdf', dpi=300,
                 bbox_inches='tight', format='pdf')
     pf.close()
@@ -275,25 +285,28 @@ if __name__ == '__main__':
     parser.add_argument('--zlim', default=10, type=float, help='Maximum loss value to show')
     parser.add_argument('--show', action='store_true', default=False, help='show plots')
     parser.add_argument('--pca_3d', action='store_true', default=False, help='Use 3D plot for the loss surface and trajectory')
-    parser.add_argument('--show_constaints', action='store_true', default=False, help='Mark points not with in constraints')
+    parser.add_argument('--show_constraints', action='store_true', default=False, help='Mark points not with in constraints')
     
     parser.add_argument('--show_boundaries', action='store_true', default=False, help='Mark trajectory weights used as boundaries')
     parser.add_argument('--bound_file', default='', help='File containing boundary dict')
     
     args = parser.parse_args()
 
+    """
     args.vmin = 2.3
     args.vmax = 3
     args.vlevel = 0.001
     args.zlim = 100
+    """
     args.show = True
     if exists(args.surf_file) and exists(args.proj_file) and exists(args.dir_file):
-        plot_contour_trajectory(args.surf_file, args.dir_file, args.proj_file,
-                                args.surf_name, args.vmin, args.vmax, args.vlevel, args.show)
+        if not args.pca_3d:
+            plot_contour_trajectory(args.surf_file, args.dir_file, args.proj_file,
+                                    args.surf_name, args.vmin, args.vmax, args.vlevel, args.show)
+        else:
+            plot_3d_contour_trajectory(args, args.surf_file, args.dir_file, args.proj_file, args.surf_name,
+                            args.vmin, args.vmax, args.vlevel, args.show)
     elif exists(args.proj_file) and exists(args.dir_file):
         plot_trajectory(args.proj_file, args.dir_file, args.show)
     elif exists(args.surf_file):
         plot_2d_contour(args.surf_file, args.surf_name, args.vmin, args.vmax, args.vlevel, args.show)
-    elif args.pca_3d:
-        plot_3d_contour_trajectory(args, args.surf_file, args.dir_file, args.proj_file, args.surf_name,
-                            args.vmin, args.vmax, args.vlevel, args.show)

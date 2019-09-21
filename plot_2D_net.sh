@@ -21,4 +21,8 @@ popd
 proj_file="$2"/directions_iter_$3.h5_iter_$3_proj_cos.h5
 dir_file="$2"/directions_iter_$3.h5
 
-python plot_2D.py --pca_3d --surf_file $surf_file --proj_file $proj_file --dir_file $dir_file
+if [ $4 == "--show_constraint" ]; then
+    python plot_2D.py --pca_3d --surf_file $surf_file --proj_file $proj_file --dir_file $dir_file --show_constraint
+else
+    python plot_2D.py --pca_3d --surf_file $surf_file --proj_file $proj_file --dir_file $dir_file
+fi

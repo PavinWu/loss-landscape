@@ -9,13 +9,13 @@
 
 pushd $2 
 
-surf_file="$2"/directions_iter_$3.h5_\[*_nw\=2.h5
 shopt -s extglob    # need to be run outside!
-if [ -z "$1" ]; then
-     surf_file="$2"/directions_iter_$3.h5_\[!(*nw\=2).h5
+surf_file="$2"/`ls directions_iter_$3.h5_\[!(*nw\=2).h5`     # assume no space
+if [ $1 == "--subplanes" ]; then
+     surf_file="$2"/`ls directions_iter_$3.h5_\[*_nw\=2.h5`
 #    shopt -u extglobz
 fi
-
+echo "surf_file: "$surf_file
 popd
 
 proj_file="$2"/directions_iter_$3.h5_iter_$3_proj_cos.h5

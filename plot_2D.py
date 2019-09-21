@@ -118,7 +118,7 @@ def plot_3d_contour_trajectory(args, surf_file, dir_file, proj_file, surf_name='
         Z = np.array(f[surf_name][:])
         # xTODO change NaN to max
         # helpful: np.nanmax, https://stackoverflow.com/questions/5124376/convert-nan-value-to-zero
-        Z[np.isnan(Z)] = np.nanmax(Z)
+        Z[np.isnan(Z)] = np.nanmax(Z) + 2
         Z = np.log(Z)
     elif surf_name == 'train_err' or surf_name == 'test_err' :
         Z = 100 - np.array(f[surf_name][:])

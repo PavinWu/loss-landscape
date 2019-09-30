@@ -5,7 +5,7 @@
 # whether to plot subplanes $1
 
 # example:
-# ./plot_2D_net.sh ../trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3/PCA_weights_save_epoch\=3/ 2 
+# ./plot_2D_net.sh --subplanes ../trained_nets/resnet56_sgd_lr\=0.1_bs\=128_wd\=0.0005_mom\=0.9_save_epoch\=3/PCA_weights_save_epoch\=3/ 2 -- 
 
 pushd $2 
 

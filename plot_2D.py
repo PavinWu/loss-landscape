@@ -150,7 +150,7 @@ def plot_3d_contour_trajectory(args, surf_file, dir_file, proj_file, surf_name='
     colours = np.arange(len(pf['proj_xcoord'][:]))
     pf_log_loss = np.log(pf['loss'][:])
     ax.scatter(pf['proj_xcoord'][:], pf['proj_ycoord'][:], pf_log_loss, marker='o', c=colours, cmap='rainbow')   # TODO check for loss attribute
-    ax.plot(pf['proj_xcoord'][:], pf['proj_ycoord'][:], pf_log_loss, 'k-', alpha=0.1)   # TODO check for loss attribute
+    ax.plot(pf['proj_xcoord'][:], pf['proj_ycoord'][:], pf_log_loss, 'k-', alpha=0.1)  
     
     epoch_label_intv = 2
     len_pf = len(pf['proj_xcoord'][:])

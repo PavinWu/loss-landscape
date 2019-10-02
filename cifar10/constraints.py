@@ -9,7 +9,7 @@ def max_norm(model, max_norm):
                 param.data.copy_(param * (max_norm / (1e-10 + norm)))   # won't work without copy_???
             
 def SRIP(model, d_rate):
-    # Adapted for Python from https://github.com/TAMU-VITA/Orthogonality-in-CNNs/blob/master/ResNet/resnet_cifar_new.py
+    # Adapted for Pytorch from https://github.com/TAMU-VITA/Orthogonality-in-CNNs/blob/master/ResNet/resnet_cifar_new.py
     reg_loss = 0
     for name, param in model.named_parameters():
         if 'bias' not in name and param.dim() == 4:

@@ -168,7 +168,7 @@ def plot_3d_contour_trajectory(args, surf_file, dir_file, proj_file, surf_name='
         label_range.append(label_final)
 
     for iw in label_range:
-        ax.text(pf['proj_xcoord'][iw], pf['proj_ycoord'][iw], pf_log_loss[iw], '%s' % (str((iw+1)*3)), size=8+(iw*3)//50, zorder=1, color='k')  
+        ax.text(pf['proj_xcoord'][iw], pf['proj_ycoord'][iw], pf_log_loss[iw], '%s' % (str((iw+1)*3)), size=10+(iw*3)//50, zorder=1, color='k')  
         # actual epoch num is + 1*3 (ignored epoch 0)
     
     """
@@ -194,8 +194,8 @@ def plot_3d_contour_trajectory(args, surf_file, dir_file, proj_file, surf_name='
     df = h5py.File(dir_file,'r')
     ratio_x = df['explained_variance_ratio_'][0]
     ratio_y = df['explained_variance_ratio_'][1]
-    plt.xlabel('1st PC: %.2f %%' % (ratio_x*100), fontsize='xx-large')
-    plt.ylabel('2nd PC: %.2f %%' % (ratio_y*100), fontsize='xx-large')
+    plt.xlabel('1st PC: %.2f %%' % (ratio_x*100), fontsize='x-large')
+    plt.ylabel('2nd PC: %.2f %%' % (ratio_y*100), fontsize='x-large')
     df.close()
     #plt.clabel(CS1, inline=1, fontsize=6)
     #plt.clabel(CS2, inline=1, fontsize=6)

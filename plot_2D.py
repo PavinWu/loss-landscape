@@ -151,17 +151,18 @@ def plot_3d_contour_trajectory(args, surf_file, dir_file, proj_file, surf_name='
     pf_log_loss = np.log(pf['loss'][:])
     ax.scatter(pf['proj_xcoord'][:], pf['proj_ycoord'][:], pf_log_loss, marker='o', c=colours, cmap='rainbow')   # TODO check for loss attribute
     ax.plot(pf['proj_xcoord'][:], pf['proj_ycoord'][:], pf_log_loss, 'k-', alpha=0.1)  
+    plt.title("Iter: " + proj_file[-len('_proj_cos.h5')-1:-len('_proj_cos.h5')])
     
     epoch_label_intv = 2
     len_pf = len(pf['proj_xcoord'][:])
     for iw in range(0, len_pf, epoch_label_intv):
-        ax.text(pf['proj_xcoord'][iw], pf['proj_ycoord'][iw], pf_log_loss[iw], '%s' % (str(iw*3)), size=8+(iw*3)//50, zorder=1, color='k') 
+        ax.text(pf['proj_xcoord'][iw], pf['proj_ycoord'][iw], pf_log_loss[iw], '%s' % (str((iw+1)*3)), size=8+(iw*3)//50, zorder=1, color='k') 
 
     # plot red points when learning rate decays
     # xTODO e won't corespond to index
-    for e in [150//3, 225//3, 276//3]:
+    for e in [150//3, 225//3, 276//3]:  # 275 not divisible by 3
         if len_pf > e:
-            plt.plot([pf['proj_xcoord'][e]], [pf['proj_ycoord'][e]], marker='v', color='r')
+            plt.plot([pf['proj_xcoord'][e-1]], [pf['proj_ycoord'][e-1]], pf_log_loss[e-1], marker=11, color='r')
 
     # xTODO marker which weight used as boundary (TODO may be some bugs)
     if args.show_boundaries:        # not used/tested

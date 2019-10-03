@@ -155,14 +155,28 @@ def plot_3d_contour_trajectory(args, surf_file, dir_file, proj_file, surf_name='
     
     epoch_label_intv = 2
     len_pf = len(pf['proj_xcoord'][:])
-    for iw in range(0, len_pf, epoch_label_intv):
-        ax.text(pf['proj_xcoord'][iw], pf['proj_ycoord'][iw], pf_log_loss[iw], '%s' % (str((iw+1)*3)), size=8+(iw*3)//50, zorder=1, color='k') 
+    label_range = range(0, len_pf, epoch_label_intv)
+    label_lrdecay = [150//3-1, 225//3-1, 276//3-1]    # 275 not divisible by 3, -1 since ignore epoch 0 when take weights to calc PCA
+    label_final = len_pf - 1
+    for e in label_lrdecay:
+        # plot red points when learning rate decays
+        if len_pf > e:
+            plt.plot([pf['proj_xcoord'][e]], [pf['proj_ycoord'][e]], pf_log_loss[e], marker=11, color='r')
+            if e % epoch_label_intv != 0:
+                label_range.append(e)
+    if label_final % epoch_label_intv != 0:
+        label_range.append(label_final)
 
-    # plot red points when learning rate decays
+    for iw in label_range:
+        ax.text(pf['proj_xcoord'][iw], pf['proj_ycoord'][iw], pf_log_loss[iw], '%s' % (str((iw+1)*3)), size=8+(iw*3)//50, zorder=1, color='k')  
+        # actual epoch num is + 1*3 (ignored epoch 0)
+    
+    """
     # xTODO e won't corespond to index
     for e in [150//3, 225//3, 276//3]:  # 275 not divisible by 3
         if len_pf > e:
-            plt.plot([pf['proj_xcoord'][e-1]], [pf['proj_ycoord'][e-1]], pf_log_loss[e-1], marker=11, color='r')
+            plt.plot([pf['proj_xcoord'][e]], [pf['proj_ycoord'][e]], pf_log_loss[e], marker=11, color='r')
+    """
 
     # xTODO marker which weight used as boundary (TODO may be some bugs)
     if args.show_boundaries:        # not used/tested

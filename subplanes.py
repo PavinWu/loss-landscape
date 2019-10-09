@@ -49,6 +49,7 @@ def get_b_list(num_plane, nw_inplane, nw_inplane_left, pjt_list_sorted, print_li
             in the sorted trajectory list.
         This is so there is a subplane which intersect the later weight in case the trajectory wraps around in x-axis,
             rather than just showing the plane for the old weights.
+    Actually currently broken. nw=2 is supposed to use every weights as bounds, but currently skipping some.
     """
     b_list = []
 
@@ -77,7 +78,7 @@ def get_b_list(num_plane, nw_inplane, nw_inplane_left, pjt_list_sorted, print_li
             elif pjt_list_sorted[i_max][0] <= pjt_list_sorted[i][0]:
                 i_max = i
 
-            if pjt_list_sorted[i_max][0] > pjt_list_sorted[i][0]:
+            if pjt_list_sorted[i_max][0] > pjt_list_sorted[i][0]:   # check if true index of weight (epoch number) is monotonically ascending
                 mono_ascend = False
             i += 1
 
@@ -97,6 +98,9 @@ def get_b_list(num_plane, nw_inplane, nw_inplane_left, pjt_list_sorted, print_li
         b_list = sorted(b_list, key=x_coord)    # reverse (make ascend): x always ascend when finding loss for plot
 
     return b_list
+
+def get_b_list_nojump(num_plane, nw_inplane, nw_inplane_left, pjt_list_sorted, print_lists):
+    pass
 
 def boundary_list(projtraj_file, nw_inplane, num_w_per_pca):
     # num plane is number of subplane, NOT PCA plane

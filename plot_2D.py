@@ -109,11 +109,13 @@ def plot_3d_contour_trajectory(args, surf_file, dir_file, proj_file, surf_name='
     
     assert exists(surf_file) and exists(proj_file) and exists(dir_file)
 
+    
     # plot contours
     f = h5py.File(surf_file,'r')
     x = np.array(f['xcoordinates'][:])
     y = np.array(f['ycoordinates'][:])
     X, Y = np.meshgrid(x, y)
+    
     if surf_name in f.keys():
         Z = np.array(f[surf_name][:])
         # xTODO change NaN to max
@@ -122,9 +124,10 @@ def plot_3d_contour_trajectory(args, surf_file, dir_file, proj_file, surf_name='
         Z = np.log(Z)
     elif surf_name == 'train_err' or surf_name == 'test_err' :
         Z = 100 - np.array(f[surf_name][:])
-
+    
     fig = plt.figure()
     ax = Axes3D(fig)
+    
     surf = ax.plot_surface(X, Y, Z, cmap=cm.coolwarm, linewidth=0, antialiased=False)   # TODO colour issues
     fig.colorbar(surf, shrink=0.5, aspect=5)
     fig.savefig(surf_file + '_' + surf_name + '_3dsurface.pdf', dpi=300,
@@ -141,9 +144,9 @@ def plot_3d_contour_trajectory(args, surf_file, dir_file, proj_file, surf_name='
                     in_bound_list.append([x[i], y[j], Z[j][i]])
         in_bound_arr = np.transpose(np.array(in_bound_list))
         ax.scatter(in_bound_arr[0], in_bound_arr[1], in_bound_arr[2], marker='x', color='r')
-
+    
     f.close()
-
+    
     # plot trajectories
     # xTODO rainbow colour as epoch increases
     pf = h5py.File(proj_file, 'r')
@@ -161,7 +164,7 @@ def plot_3d_contour_trajectory(args, surf_file, dir_file, proj_file, surf_name='
     for e in label_lrdecay:
         # plot red points when learning rate decays
         if len_pf > e:
-            plt.plot([pf['proj_xcoord'][e]], [pf['proj_ycoord'][e]], pf_log_loss[e], marker=11, color='r')
+            plt.plot([pf['proj_xcoord'][e]], [pf['proj_ycoord'][e]], pf_log_loss[e], marker='v', color='r')
             if e % epoch_label_intv != 0:
                 label_range.append(e)
     if label_final % epoch_label_intv != 0:
@@ -171,12 +174,12 @@ def plot_3d_contour_trajectory(args, surf_file, dir_file, proj_file, surf_name='
         ax.text(pf['proj_xcoord'][iw], pf['proj_ycoord'][iw], pf_log_loss[iw], '%s' % (str((iw+1)*3)), size=10+(iw*3)//50, zorder=1, color='k')  
         # actual epoch num is + 1*3 (ignored epoch 0)
     
-    """
+    
     # xTODO e won't corespond to index
     for e in [150//3, 225//3, 276//3]:  # 275 not divisible by 3
         if len_pf > e:
             plt.plot([pf['proj_xcoord'][e]], [pf['proj_ycoord'][e]], pf_log_loss[e], marker=11, color='r')
-    """
+    
 
     # xTODO marker which weight used as boundary (TODO may be some bugs)
     if args.show_boundaries:        # not used/tested
@@ -196,6 +199,7 @@ def plot_3d_contour_trajectory(args, surf_file, dir_file, proj_file, surf_name='
     ratio_y = df['explained_variance_ratio_'][1]
     plt.xlabel('1st PC: %.2f %%' % (ratio_x*100), fontsize='x-large')
     plt.ylabel('2nd PC: %.2f %%' % (ratio_y*100), fontsize='x-large')
+    ax.set_zlabel('log loss', fontsize='x-large')
     df.close()
     #plt.clabel(CS1, inline=1, fontsize=6)
     #plt.clabel(CS2, inline=1, fontsize=6)
